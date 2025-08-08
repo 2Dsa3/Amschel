@@ -4,7 +4,7 @@
 
 El sistema implementa una arquitectura multiagente segura utilizando LangChain con APIs de OpenAI (para prototipo) para evaluar el riesgo crediticio de PYMEs. La arquitectura sigue los principios del Google SAIF Framework y las mejores prácticas del OWASP Top 10 para LLMs, garantizando seguridad, privacidad y auditabilidad completa.
 
-**Nota de Implementación**: Para el hackathon se utilizarán APIs de OpenAI con proxy de seguridad y anonimización de datos. La versión de producción debe migrar a modelos locales para cumplimiento regulatorio completo.
+**Nota de Implementación**: Para el hackathon se utilizará GPT-4o de OpenAI con proxy de seguridad y anonimización de datos. La versión de producción debe migrar a modelos locales para cumplimiento regulatorio completo.
 
 ### Principios de Diseño
 
@@ -46,8 +46,7 @@ graph TB
     
     subgraph "Capa de Modelos"
         PROXY[Proxy de Seguridad]
-        GPT4[OpenAI GPT-4]
-        GPT35[OpenAI GPT-3.5-turbo]
+        GPT4O[OpenAI GPT-4o]
     end
     
     UI --> API
@@ -64,8 +63,7 @@ graph TB
     SA --> SS
     SEC --> AL
     MO --> PROXY
-    PROXY --> GPT4
-    PROXY --> GPT35
+    PROXY --> GPT4O
 ```
 
 ### Sistema de 10 Agentes Especializados
@@ -76,17 +74,17 @@ El sistema implementa exactamente 10 agentes especializados distribuidos en 3 ca
 
 #### 1. SecuritySupervisor
 - **Responsabilidad**: Monitoreo central y detección de anomalías en tiempo real
-- **Tecnología**: OpenAI GPT-3.5-turbo con prompts de detección de seguridad
+- **Tecnología**: OpenAI GPT-4o con prompts de detección de seguridad
 - **Funciones**: Supervisión de operaciones, alertas de seguridad, circuit breakers
 
 #### 2. InputValidator  
 - **Responsabilidad**: Validación y sanitización de todas las entradas del sistema
-- **Tecnología**: OpenAI GPT-3.5-turbo con prompts anti-prompt injection
+- **Tecnología**: OpenAI GPT-4o con prompts anti-prompt injection
 - **Funciones**: Detección de prompt injection, sanitización de datos, filtrado de inputs maliciosos
 
 #### 3. OutputSanitizer
 - **Responsabilidad**: Validación y filtrado de todas las salidas de los modelos
-- **Tecnología**: OpenAI GPT-3.5-turbo con prompts de validación de outputs
+- **Tecnología**: OpenAI GPT-4o con prompts de validación de outputs
 - **Funciones**: Filtrado de información sensible, validación de respuestas, explicabilidad segura
 
 #### 4. AuditLogger
@@ -98,17 +96,17 @@ El sistema implementa exactamente 10 agentes especializados distribuidos en 3 ca
 
 #### 5. FinancialAgent
 - **Responsabilidad**: Análisis completo de estados financieros SCVS
-- **Tecnología**: OpenAI GPT-4 con prompts especializados en análisis financiero
+- **Tecnología**: OpenAI GPT-4o con prompts especializados en análisis financiero
 - **Funciones**: Procesamiento de balances, cálculo de ratios, análisis de solvencia y liquidez
 
 #### 6. ReputationalAgent
 - **Responsabilidad**: Análisis de reputación online y redes sociales
-- **Tecnología**: OpenAI GPT-3.5-turbo con prompts de análisis de sentimientos
+- **Tecnología**: OpenAI GPT-4o con prompts de análisis de sentimientos
 - **Funciones**: Web scraping seguro, análisis de sentimientos, scoring de reputación digital
 
 #### 7. BehavioralAgent
 - **Responsabilidad**: Evaluación de patrones de comportamiento y referencias comerciales
-- **Tecnología**: OpenAI GPT-4 con prompts de análisis comportamental
+- **Tecnología**: OpenAI GPT-4o con prompts de análisis comportamental
 - **Funciones**: Análisis de referencias, patrones de pago, predicción comportamental
 
 ## 🏗️ AGENTES DE INFRAESTRUCTURA (3 agentes)
@@ -120,12 +118,12 @@ El sistema implementa exactamente 10 agentes especializados distribuidos en 3 ca
 
 #### 9. ScoringAgent
 - **Responsabilidad**: Consolidación final y generación del scoring de riesgo
-- **Tecnología**: OpenAI GPT-4 con prompts de consolidación y scoring
+- **Tecnología**: OpenAI GPT-4o con prompts de consolidación y scoring
 - **Funciones**: Consolidación de resultados, scoring 0-1000, explicabilidad del puntaje
 
 #### 10. ScenarioSimulator
 - **Responsabilidad**: Simulaciones "qué pasaría si" y análisis de escenarios
-- **Tecnología**: OpenAI GPT-4 con prompts de simulación y análisis
+- **Tecnología**: OpenAI GPT-4o con prompts de simulación y análisis
 - **Funciones**: Simulación de escenarios, recálculo dinámico, comparación de resultados
 
 ## Componentes y Interfaces
@@ -356,7 +354,7 @@ class SecurityTestSuite:
 ### Tecnologías Principales
 
 - **Framework de Agentes**: LangChain + CrewAI
-- **Modelos**: OpenAI GPT-4 + GPT-3.5-turbo (con proxy de seguridad)
+- **Modelos**: OpenAI GPT-4o (con proxy de seguridad)
 - **Base de Datos**: JSON/SQLite para prototipo
 - **Backend**: FastAPI con middleware de seguridad
 - **Frontend**: Streamlit con autenticación
