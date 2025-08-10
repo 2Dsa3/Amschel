@@ -1,0 +1,483 @@
+Security Agent
+AuditLogger:
+Funcionalidad 1: Depuración de Errores
+Problema Real: Imagina que un usuario intenta analizar una PYME y el sistema simplemente arroja "Error". Nadie sabe por qué. ¿Falló la extracción de datos? ¿La API de OpenAI no respondió? ¿El análisis de sentimiento dio un resultado inesperado?
+
+Solución con AuditLogger: Como desarrollador, abres el archivo audit.log. En lugar de adivinar, lees la secuencia de eventos:
+
+{"action": "START_ANALYSIS", "pyme_id": "XYZ"} - OK.
+
+{"action": "START_EXTRACTION", "url": "..."} - OK.
+
+{"action": "EXTRACTION_FAILURE", "details": "HTTP Error 404: Not Found"} - ¡Aquí está el problema!
+El log te dice instantáneamente que el agente Extractor falló porque la URL de la red social de la PYME estaba rota. Sin el log, estarías buscando el error a ciegas.
+
+Funcionalidad 2: Trazabilidad y Auditoría (Explicabilidad)
+Problema Real: Un año después, un ente regulador o un gerente te pregunta: "¿Por qué se le negó el crédito a la PYME 'ABC' el 9 de agosto de 2025 y cuáles fueron los factores clave?".
+
+Solución con AuditLogger: Buscas en tu audit.log el registro de esa decisión. Encontrarás un objeto JSON que contiene:
+
+La fecha y hora exactas.
+
+Los datos de entrada que se usaron.
+
+La decisión final ("Rechazado").
+
+La justificación exacta que dio la IA.
+
+Un hash de integridad que demuestra criptográficamente que ese registro no ha sido alterado desde que se escribió.
+Esto proporciona una pista de auditoría completa, haciendo que tu sistema de IA pase de ser una "caja negra" a un sistema transparente y defendible.
+
+Funcionalidad 3: Materia Prima para la Supervisión de Seguridad
+Problema Real: ¿Cómo sabes si alguien está intentando atacar tu sistema o si el rendimiento está bajando?
+
+Solución con AuditLogger: El log es la comida del futuro agente SecuritySupervisor. Este agente leerá el audit.log y detectará patrones que un humano no vería:
+
+Seguridad: "Detecto 150 intentos de análisis fallidos desde la misma dirección IP en la última hora. Podría ser un ataque de denegación de servicio." -> Genera una alerta.
+
+Rendimiento: "El tiempo promedio entre el log START_ANALYSIS y ANALYSIS_COMPLETE ha aumentado un 50% en los últimos 3 días." -> Alerta al equipo de desarrollo sobre un problema de rendimiento.
+
+Arquitectura General del Módulo
+El módulo security/ actúa como una capa de protección y supervisión que envuelve la lógica principal de la aplicación. Su objetivo es validar la información que entra, sanitizar la que sale y registrar todas las operaciones críticas para futuras auditorías.
+
+## Componente 1: AuditLogger (El Cronista del Sistema)
+Propósito Principal: Es la "caja negra" o el sistema de registro inmutable del proyecto. Su función es crear un rastro de auditoría detallado y seguro de todas las acciones que realizan los agentes.
+
+Archivo Clave: security/logger.py
+
+Función Principal para el Equipo: setup_logger()
+
+Descripción: Esta es la única función que el equipo necesita importar desde el módulo de logging. Al llamarla (audit_logger = setup_logger()), se obtiene una instancia del logger ya configurada para escribir en el archivo audit.log. Debe llamarse una vez al inicio del programa principal.
+
+Funcionalidades Clave del AuditLogger:
+Logs Estructurados (JSON):
+
+¿Qué hace?: En lugar de escribir líneas de texto simples, cada evento se guarda como un objeto JSON ({"timestamp": "...", "level": "INFO", ...}).
+
+¿Por qué?: Esto es crucial para el monitoreo automático. Nuestro futuro agente SecuritySupervisor podrá leer y analizar este archivo fácilmente para detectar patrones, algo que sería muy difícil con texto libre.
+
+Hash de Integridad (SHA-256):
+
+¿Qué hace?: Antes de guardar un registro, calcula una "firma digital" (hash) de su contenido y la incluye en el mismo registro ("integrity_hash": "...").
+
+¿Por qué?: Esto garantiza que los logs sean inmutables. Si un solo carácter del registro es modificado en el archivo, su hash ya no coincidirá con el contenido. Esto nos permite demostrar con certeza criptográfica que los registros de auditoría no han sido alterados, lo cual es vital para la trazabilidad y el cumplimiento normativo.
+
+Input Validator
+Propósito Principal: Es la primera línea de defensa del sistema. Su trabajo es interceptar y analizar cualquier dato de texto proveniente de una fuente externa (como un usuario o una web) para detectar y bloquear ataques de inyección de prompts.
+
+Archivo Clave: security/input_validator.py
+
+Función Principal para el Equipo: validate_input(api_key: str, user_input: str)
+
+Descripción: Esta función recibe la clave de la API y el texto a analizar. Orquesta una llamada a un LLM (GPT-4o) con un prompt especializado en seguridad y devuelve un objeto ValidationResult con un veredicto claro.
+
+Funcionalidades Clave del InputValidator:
+Validación Basada en IA (Meta-Prompt):
+
+¿Qué hace?: No usa reglas fijas, sino que le pide a un modelo de lenguaje avanzado que actúe como un experto en ciberseguridad para analizar la intención del texto de entrada.
+
+¿Por qué?: Los ataques de inyección de prompts son sutiles y variados. Un enfoque basado en IA es mucho más robusto para detectar nuevas y creativas formas de ataque que un simple filtro de palabras clave.
+
+Respuesta Estructurada (Pydantic):
+
+¿Qué hace?: La función no devuelve un simple "sí" o "no". Devuelve un objeto ValidationResult que contiene dos campos: is_safe (un booleano True/False) y reason (una cadena de texto con la explicación).
+
+¿Por qué?: Esto permite al código que lo llama tomar decisiones programáticas fáciles (if result.is_safe: ...) y, al mismo tiempo, registrar o mostrar la razón exacta por la cual una entrada fue bloqueada, lo cual es útil para la depuración y la auditoría.
+
+¿Cómo lo usan los demás?:
+Python
+
+# El Agente Orquestador usará este validador antes de procesar cualquier dato externo.
+Uso de la funcion para la persona:
+from security import validate_input, setup_logger
+audit_logger = setup_logger()
+
+
+
+Outuput Sanitizer
+Componente 3: OutputSanitizer (El Redactor de Cumplimiento)
+Propósito Principal: Es la última línea de defensa antes de que cualquier información generada por nuestros agentes de IA sea expuesta o almacenada. Su función es actuar como un Oficial de Cumplimiento y Privacidad, inspeccionando y "limpiando" todo el texto de salida para prevenir la fuga de datos sensibles y asegurar un tono profesional.
+
+Archivo Clave: security/output_sanitizer.py
+
+Función Principal para el Equipo: sanitize_output(api_key: str, generated_text: str)
+
+Descripción: Esta es la función que el equipo debe usar. Recibe la clave de la API y cualquier cadena de texto que haya sido generada por otro agente de IA. Devuelve un objeto SanitizationResult que contiene el texto ya limpio y seguro, junto con un informe de las acciones tomadas.
+
+Funcionalidades Clave del OutputSanitizer:
+Filtrado y Redacción Basado en IA:
+
+¿Qué hace?: Utiliza un "meta-prompt" para instruir a GPT-4o a que actúe como un experto en privacidad. En lugar de buscar palabras clave, el modelo entiende el contexto del texto para identificar y enmascarar:
+
+Información Personal Identificable (PII): Nombres, correos, cédulas, etc.
+
+Datos Confidenciales: Secretos, claves, o cualquier información que parezca interna.
+
+Lenguaje Inapropiado: Tonos sesgados, opiniones no profesionales o lenguaje ofensivo.
+
+¿Por qué?: Un simple filtro no podría diferenciar entre "el cliente se llama Juan Pérez" (PII que debe ser redactada) y "la empresa se llama Pérez & Cía." (un nombre comercial que puede ser seguro). La IA entiende esta diferencia. En lugar de borrar la información, la reemplaza con [DATO REDACTADO], manteniendo la coherencia del texto.
+
+Veredicto Estructurado (Pydantic):
+
+¿Qué hace?: La función devuelve un objeto SanitizationResult con tres campos claros:
+
+is_safe (booleano): True si el texto original no necesitó cambios, False si se tuvo que modificar.
+
+sanitized_text (texto): La versión final y segura del texto.
+
+details (texto): Un resumen de lo que se hizo (ej: "Se redactó 1 nombre y 1 correo electrónico.").
+
+¿Por qué?: Esto proporciona un control total. El código que llama a esta función puede primero verificar el campo details para registrar qué tipo de "limpieza" se realizó (útil para la auditoría) y luego usar con total confianza el sanitized_text para guardarlo en la base de datos o mostrarlo en el frontend.
+Uso de la funcion para la persona:
+from security import sanitize_output, setup_logger
+
+audit_logger = setup_logger()
+
+Security Supervisor
+Componente 4: SecuritySupervisor (La Torre de Vigilancia Central)
+Propósito Principal: Es el "analista de inteligencia" del equipo. A diferencia de los otros agentes que reaccionan a eventos individuales en tiempo real, el Supervisor opera de forma asíncrona para analizar el comportamiento del sistema a lo largo del tiempo. Su misión es leer el historial de logs y detectar patrones sutiles y complejos que podrían indicar una amenaza coordinada, un fallo sistémico o un abuso.
+
+Archivo Clave: security/supervisor.py
+
+Función Principal para el Equipo: run_security_supervision(api_key: str, log_file_path: str = "audit.log")
+
+Descripción: Esta función está diseñada para ser ejecutada de forma periódica (por ejemplo, cada hora mediante una tarea programada) o bajo demanda por un administrador. Lee el archivo de log, lo envía a un LLM con un prompt de auditoría, y devuelve un SupervisionReport con sus hallazgos.
+
+Funcionalidades Clave del SecuritySupervisor:
+Análisis de Comportamiento Basado en Logs:
+
+¿Qué hace?: Su fuente de datos no es una entrada de usuario, sino el archivo audit.log generado por el AuditLogger. Analiza un conjunto de eventos históricos para encontrar relaciones entre ellos.
+
+¿Por qué?: La seguridad robusta no solo consiste en detener amenazas individuales. Un solo intento de inyección de prompt puede ser bloqueado por el InputValidator, pero solo el SecuritySupervisor puede detectar que se han producido 500 intentos desde la misma fuente en la última hora, identificando así un ataque automatizado y coordinado.
+
+Detección de Patrones Anómalos:
+
+¿Qué hace?: Su "meta-prompt" instruye a GPT-4o para que actúe como un analista de un Centro de Operaciones de Seguridad (SOC). No busca validar una sola cosa, sino que busca patrones predefinidos, como picos de errores, actividad inusualmente rápida, o fallos de validación repetidos desde un mismo origen.
+
+¿Por qué?: Esto permite una seguridad proactiva. En lugar de solo reaccionar a las amenazas, el sistema puede identificar precursores de un ataque o problemas de rendimiento antes de que se conviertan en incidentes críticos.
+
+Informes Accionables y "Circuit Breakers":
+
+¿Qué hace?: Devuelve un objeto SupervisionReport que no solo dice si hay una anomalía, sino que también asigna un puntaje de confianza y, crucialmente, una acción recomendada ("Ninguna", "Revisión Manual Requerida", "Alerta de Seguridad Crítica").
+
+¿Por qué?: La recommended_action permite automatizar las respuestas a las amenazas. Una "Alerta de Seguridad Crítica" podría activar un "interruptor de circuito" (circuit breaker): un mecanismo que, por ejemplo, bloquea temporalmente una dirección IP, deshabilita el login, o envía una notificación de emergencia a un administrador humano, protegiendo el sistema de forma autónoma.
+
+AGENTES DE INFRASTRUCTURA.
+Componente 1: ScoringAgent (El Analista Cuantitativo)
+Propósito Principal: Es un agente especialista cuya única función es consolidar todos los informes de los Agentes de Negocio (Financiero, Reputacional, etc.) y distillarlos en un único puntaje de riesgo numérico (0-1000) y una recomendación final.
+
+Archivo Clave: infrastructure/scoring_agent.py
+
+Función Principal para el Equipo: generate_score(api_key: str, report: ConsolidatedReport)
+
+Descripción: Recibe un objeto ConsolidatedReport con los resúmenes de cada área de negocio. Utiliza un prompt con una rúbrica de puntuación detallada para instruir al LLM sobre cómo ponderar cada factor y calcular el puntaje final. Devuelve un objeto ScoringResult con el puntaje, la justificación y la recomendación.
+
+Funcionalidades Clave del ScoringAgent:
+Consolidación Ponderada:
+
+¿Qué hace?: Su prompt le indica explícitamente el peso de cada factor (ej: 60% financiero, 20% reputacional, 20% comportamental), asegurando una evaluación consistente.
+
+¿Por qué?: Transforma análisis cualitativos de múltiples fuentes en una métrica cuantitativa, objetiva y comparable entre diferentes PYMEs.
+
+Salida Estructurada para Decisión:
+
+¿Qué hace?: Devuelve un objeto Pydantic (ScoringResult) con el puntaje y una recomendación de texto fija (Aprobado, Rechazado, Requiere Revisión Manual).
+
+¿Por qué?: Facilita la automatización. El frontend puede, por ejemplo, cambiar el color de un dashboard basándose en la recomendación, o el backend puede iniciar diferentes flujos de trabajo dependiendo del resultado.
+
+¿Cómo lo usan los demás?:
+El ScoringAgent es una herramienta interna. Será invocado exclusivamente por el MasterOrchestrator en la fase final del análisis, una vez que se hayan recopilado todos los informes de los Agentes de Negocio.
+
+Python
+
+# Ejemplo de cómo el Orquestador usaría este agente
+
+from infrastructure import generate_score
+
+# ... el orquestador ya tiene los informes de los otros agentes ...
+informe_consolidado = ConsolidatedReport(
+    financial_summary="...",
+    reputation_summary="...",
+    behavioral_summary="..."
+)
+
+# Llama al ScoringAgent para obtener el veredicto final
+resultado_final = generate_score(api_key=api_key, report=informe_consolidado)
+
+print(f"Puntaje Final: {resultado_final.score}")
+
+Claro que sí. Has construido el componente más avanzado del equipo de infraestructura. Es crucial que tu equipo entienda su valor y cómo funciona.
+
+
+
+
+Documentación Técnica: Módulo de Infraestructura (Componente 2)
+Este documento describe el segundo componente especialista del Módulo de Infraestructura: el ScenarioSimulator.
+
+Componente 2: ScenarioSimulator (El Asesor Estratégico)
+Propósito Principal: Es el agente de análisis predictivo del sistema. Su función no es evaluar el estado actual de una empresa, sino explorar futuros hipotéticos. Responde a la pregunta crucial: "¿Qué pasaría si...?". Esto permite a los usuarios (tanto analistas de crédito como las propias PYMEs) entender qué acciones específicas tendrían el mayor impacto en su perfil de riesgo.
+
+Archivo Clave: infrastructure/scenario_simulator.py
+
+Función Principal para el Equipo: run_simulation(api_key: str, simulation_input: SimulationInput)
+
+Descripción: Esta función es el punto de entrada al simulador. Requiere un objeto SimulationInput que contiene tres piezas clave de información: el informe original de la empresa, el resultado del scoring inicial, y una descripción en lenguaje natural del escenario que se desea simular. Devuelve un objeto SimulationResult con un análisis comparativo completo.
+
+Funcionalidades Clave del ScenarioSimulator:
+Re-evaluación Contextual:
+
+¿Qué hace?: A diferencia de los otros agentes, el Simulador recibe un contexto muy rico: el estado inicial completo y una variable de cambio. Su prompt está diseñado para realizar un análisis comparativo, no una evaluación desde cero. Debe razonar sobre la causalidad del cambio.
+
+¿Por qué?: Esto le permite generar explicaciones profundas. En lugar de solo decir "el nuevo puntaje es 700", puede explicar: "El puntaje aumentó en 120 puntos porque la reducción de la deuda a la mitad mejoró significativamente el ratio de apalancamiento, que era el principal factor de riesgo en el análisis original".
+
+Informe Comparativo Estructurado (Pydantic):
+
+¿Qué hace?: Devuelve un objeto SimulationResult diseñado para mostrar una comparación clara. Incluye campos como new_score, score_change (la diferencia numérica, ej: +120), y un analysis detallado del impacto del escenario.
+
+¿Por qué?: El formato de salida está optimizado para ser consumido por un frontend. Permite a la interfaz de usuario mostrar fácilmente un "antes y después", haciendo tangible el valor de las acciones propuestas y mejorando la educación financiera del usuario final.
+
+¿Cómo lo usan los demás?:
+El ScenarioSimulator se invoca después de que un análisis de riesgo inicial ya ha sido completado por el ScoringAgent. Es una herramienta interactiva, típicamente gatillada por una acción del usuario en un dashboard.
+
+Python
+
+# Ejemplo de cómo el Orquestador o un endpoint de API usaría este agente
+
+from infrastructure import generate_score, run_simulation
+from infrastructure.scoring_agent import ConsolidatedReport
+from infrastructure.scenario_simulator import SimulationInput
+
+api_key = "..." # Clave de API cargada
+
+# 1. Primero, el sistema debe haber calculado un análisis base para una empresa.
+informe_base = ConsolidatedReport(...)
+resultado_base = generate_score(api_key=api_key, report=informe_base)
+print(f"El puntaje inicial de la empresa es: {resultado_base.score}")
+
+# 2. El usuario, desde el frontend, propone un escenario.
+escenario_propuesto = "¿Cuál sería el impacto en nuestro riesgo si aumentamos las ventas recurrentes en $15,000 anuales?"
+
+# 3. Se prepara la entrada para el simulador, combinando los datos base y el escenario.
+entrada_simulacion = SimulationInput(
+    base_report=informe_base,
+    base_score=resultado_base,
+    scenario_description=escenario_propuesto
+)
+
+# 4. Se invoca al agente de simulación.
+resultado_simulacion = run_simulation(api_key=api_key, simulation_input=entrada_simulacion)
+
+# 5. El resultado se usa para mostrar la comparación.
+print("\n--- Resultado de la Simulación ---")
+print(f"El nuevo puntaje sería: {resultado_simulacion.new_score}")
+print(f"Cambio total: {resultado_simulacion.score_change:+} puntos")
+print(f"Análisis del asesor: {resultado_simulacion.analysis}")
+
+
+ReputationalAgent (El Analista de Reputación Online)
+Propósito Principal: Es el especialista del equipo en datos no estructurados y opinión pública. Su función es procesar grandes volúmenes de texto extraídos de fuentes como redes sociales, foros y sitios de reseñas para destilar la percepción y el sentimiento del público hacia una empresa.
+
+Archivo Clave: business_agents/reputational_agent.py
+
+Función Principal para el Equipo: analyze_reputation(api_key: str, social_media_text: str)
+
+Descripción: Esta función es el punto de entrada al agente. Recibe un único bloque de texto en crudo (que puede contener múltiples comentarios o reseñas) y devuelve un objeto ReputationAnalysisResult con un análisis estructurado y detallado del sentimiento y los temas clave.
+
+Funcionalidades Clave del ReputationalAgent:
+Análisis de Sentimiento y Tópicos:
+
+¿Qué hace?: Va más allá de una simple clasificación "bueno/malo". Realiza un análisis de sentimiento para calcular un puntaje numérico (-1.0 a 1.0) y, lo que es más importante, extrae los temas o tópicos recurrentes asociados a los sentimientos positivos y negativos (ej: Temas Positivos: "calidad del producto", "atención al cliente"; Temas Negativos: "tiempos de entrega").
+
+¿Por qué?: Esto proporciona insights accionables. No solo sabemos si los clientes están contentos o no, sino por qué. Saber que el problema recurrente es la "entrega" permite al analista de riesgo identificar un riesgo operacional específico.
+
+Transformación de Datos No Estructurados:
+
+¿Qué hace?: Su principal valor es convertir un caos de opiniones, jerga de internet y texto informal en un informe Pydantic limpio, predecible y estructurado (ReputationAnalysisResult).
+
+¿Por qué?: Los datos de reputación son, por naturaleza, desordenados. Este agente los normaliza, permitiendo que el ScoringAgent pueda consumir esta información de forma cuantitativa y cualitativa para incluirla en su modelo de riesgo ponderado.
+
+¿Cómo lo usan los demás?:
+El ReputationalAgent será invocado por el MasterOrchestrator después de que el Agente Extractor haya recolectado el contenido de las redes sociales de la PYME.
+
+Python
+
+# Ejemplo de cómo el Orquestador usaría este agente
+
+from business_agents import analyze_reputation
+from security import setup_logger
+
+audit_logger = setup_logger()
+api_key = "..."  # Clave de API cargada
+
+def procesar_datos_de_redes_sociales(texto_extraido_de_la_web: str):
+    
+    # 1. El Orquestador le pasa el texto en crudo al ReputationalAgent.
+    audit_logger.info({"action": "REPUTATION_ANALYSIS_START"})
+    
+    try:
+        informe_reputacional = analyze_reputation(
+            api_key=api_key, 
+            social_media_text=texto_extraido_de_la_web
+        )
+
+        # 2. El informe estructurado ya está listo para ser usado en la siguiente fase del análisis.
+        print(f"Análisis de reputación completado. Sentimiento general: {informe_reputacional.sentimiento_general}")
+        
+        audit_logger.info({
+            "action": "REPUTATION_ANALYSIS_SUCCESS",
+            "sentiment_score": informe_reputacional.puntaje_sentimiento
+        })
+        
+        # Este 'informe_reputacional' es uno de los documentos que se le entregarán
+        # al ScoringAgent para la consolidación final.
+        return informe_reputacional
+
+    except Exception as e:
+        audit_logger.error({"action": "REPUTATION_ANALYSIS_ERROR", "error": str(e)})
+        # Manejar el error apropiadamente
+        return None
+
+# Simulación
+texto_crudo_de_facebook = "..." # Este texto sería el output del Agente Extractor
+procesar_datos_de_redes_sociales(texto_crudo_de_facebook)
+
+
+
+FinancialAgent (El Analista de Estados Financieros)
+Propósito Principal: Es el especialista en datos estructurados y cuantitativos del equipo. Su única responsabilidad es procesar el texto extraído de documentos financieros formales (como los balances descargados del portal de la SCVS) y transformarlo en un análisis coherente y estructurado sobre la salud financiera de una empresa.
+
+Archivo Clave: business_agents/financial_agent.py
+
+Función Principal para el Equipo: analyze_financial_document(api_key: str, document_text: str)
+
+Descripción: Este es el punto de entrada al agente. Recibe el texto en crudo de un estado financiero y devuelve un objeto FinancialAnalysisResult con un resumen experto de los indicadores financieros más importantes.
+
+Funcionalidades Clave del FinancialAgent:
+Interpretación de Datos Financieros:
+
+¿Qué hace?: El agente está instruido a través de su prompt para reconocer y entender la terminología contable estándar (Activos, Pasivos, Patrimonio, Ingresos, etc.). Es capaz de interpretar las relaciones entre estas cifras para evaluar conceptos complejos como la liquidez (comparando activos corrientes con pasivos corrientes) o la solvencia.
+
+¿Por qué?: Automatiza un proceso que normalmente requeriría un analista humano. Estandariza la evaluación de documentos que pueden tener formatos ligeramente diferentes, extrayendo siempre las mismas métricas clave.
+
+Extracción de Indicadores Clave:
+
+¿Qué hace?: En lugar de solo resumir el documento, su tarea es extraer un análisis específico sobre cuatro pilares fundamentales: solvencia, liquidez, rentabilidad y tendencia de ventas.
+
+¿Por qué?: Proporciona un resultado consistente y directamente comparable entre distintas empresas. El ScoringAgent puede confiar en que siempre recibirá un análisis de estos cuatro puntos, lo que es fundamental para su modelo de puntuación ponderado.
+
+Salida Estructurada (Pydantic):
+
+¿Qué hace?: Transforma un bloque denso de texto y números en un objeto Pydantic (FinancialAnalysisResult) limpio y fácil de usar, con un campo para cada pilar del análisis y un resumen ejecutivo final.
+
+¿Por qué?: Convierte datos complejos en un informe simple y legible por máquina. Esto simplifica enormemente el trabajo del MasterOrchestrator y del ScoringAgent, que pueden consumir este resumen estructurado en lugar de tener que parsear el documento financiero completo.
+
+¿Cómo lo usan los demás?:
+El FinancialAgent será invocado por el MasterOrchestrator después de que el Agente Extractor haya obtenido el contenido del documento financiero desde el portal de la SCVS o un archivo subido.
+
+Python
+
+# Ejemplo de cómo el Orquestador usaría este agente
+
+from business_agents import analyze_financial_document
+from security import setup_logger
+
+audit_logger = setup_logger()
+api_key = "..."  # Clave de API cargada
+
+def procesar_documento_financiero(texto_del_balance: str):
+    
+    # 1. El Orquestador envía el texto del balance al FinancialAgent.
+    audit_logger.info({"action": "FINANCIAL_ANALYSIS_START"})
+    
+    try:
+        informe_financiero = analyze_financial_document(
+            api_key=api_key, 
+            document_text=texto_del_balance
+        )
+
+        # 2. El informe estructurado está listo para ser usado por el ScoringAgent.
+        print(f"Análisis financiero completado. Solvencia evaluada: {informe_financiero.solvencia}")
+        
+        audit_logger.info({
+            "action": "FINANCIAL_ANALYSIS_SUCCESS"
+        })
+        
+        # Este 'informe_financiero' es uno de los documentos clave
+        # que se le entregarán al ScoringAgent.
+        return informe_financiero
+
+    except Exception as e:
+        audit_logger.error({"action": "FINANCIAL_ANALYSIS_ERROR", "error": str(e)})
+        # Manejar el error apropiadamente
+        return None
+
+# Simulación
+texto_balance_scvs = "..." # Este texto sería el output del Agente Extractor
+procesar_documento_financiero(texto_balance_scvs)
+
+
+
+BehavioralAgent (El Analista de Comportamiento Comercial)
+Propósito Principal: Es el especialista del equipo en evaluar el carácter y la fiabilidad de una empresa. Su función es analizar datos cualitativos, como referencias comerciales y patrones de pago, para determinar la consistencia y la integridad de la PYME como socio de negocios. Complementa el análisis numérico (Financiero) y el de opinión pública (Reputacional).
+
+Archivo Clave: business_agents/behavioral_agent.py
+
+Función Principal para el Equipo: analyze_behavior(api_key: str, behavioral_data_text: str)
+
+Descripción: Este es el punto de entrada al agente. Recibe un bloque de texto que contiene el historial de pagos y/o las referencias comerciales, y devuelve un objeto BehavioralAnalysisResult con una evaluación estructurada del riesgo comportamental.
+
+Funcionalidades Clave del BehavioralAgent:
+Interpretación de Datos Cualitativos:
+
+¿Qué hace?: El agente está diseñado para interpretar el matiz del lenguaje en las referencias comerciales (ej. la diferencia entre "pagan a tiempo" y "siempre pagan, aunque a veces tarde") y datos de patrones (ej. "10 de 12 facturas a tiempo").
+
+¿Por qué?: Permite cuantificar la confianza y la fiabilidad, factores cruciales en el análisis de riesgo que no aparecen en un balance financiero. Captura la reputación de la empresa dentro de su propio ecosistema de proveedores y clientes.
+
+Clasificación de Riesgo Comportamental:
+
+¿Qué hace?: Su análisis no es solo un resumen. Clasifica explícitamente el comportamiento en categorías predefinidas (patron_de_pago, fiabilidad_referencias) y emite un veredicto final sobre el riesgo_comportamental (Bajo, Moderado, Alto).
+
+¿Por qué?: Estandariza la evaluación de datos inherentemente subjetivos. Proporciona una entrada clara y consistente para el ScoringAgent, que puede usar esta clasificación directamente en su modelo de puntuación.
+
+¿Cómo lo usan los demás?:
+El BehavioralAgent será invocado por el MasterOrchestrator, que le proporcionará el texto relevante recopilado durante la solicitud de crédito.
+
+Python
+
+# Ejemplo de cómo el Orquestador usaría este agente
+
+from business_agents import analyze_behavior
+from security import setup_logger
+
+audit_logger = setup_logger()
+api_key = "..."  # Clave de API cargada
+
+def procesar_datos_comportamentales(texto_de_referencias_e_historial: str):
+    
+    # 1. El Orquestador envía la información cualitativa al BehavioralAgent.
+    audit_logger.info({"action": "BEHAVIORAL_ANALYSIS_START"})
+    
+    try:
+        informe_comportamental = analyze_behavior(
+            api_key=api_key, 
+            behavioral_data_text=texto_de_referencias_e_historial
+        )
+
+        # 2. El informe estructurado está listo para la fase de consolidación.
+        print(f"Análisis de comportamiento completado. Riesgo determinado: {informe_comportamental.riesgo_comportamental}")
+        
+        audit_logger.info({
+            "action": "BEHAVIORAL_ANALYSIS_SUCCESS"
+        })
+        
+        # Este 'informe_comportamental' es el último de los tres informes
+        # que se le entregarán al ScoringAgent.
+        return informe_comportamental
+
+    except Exception as e:
+        audit_logger.error({"action": "BEHAVIORAL_ANALYSIS_ERROR", "error": str(e)})
+        return None
+
+# Simulación
+texto_referencias = "..." # Datos recopilados desde la solicitud de crédito
+procesar_datos_comportamentales(texto_referencias)
