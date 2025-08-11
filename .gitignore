@@ -153,4 +153,4 @@ sample_data/real/
 
 # Archivos de configuración de infraestructura local
 infrastructure/local/
-deployment/local/
+deployment/local/.env
