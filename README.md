@@ -26,12 +26,16 @@ Sistema multiagente basado en IA que utiliza GPT-4o para evaluar el riesgo credi
 
 ## 🚀 Stack Tecnológico
 
-- **IA**: OpenAI GPT-4o con proxy de seguridad
-- **Framework**: LangChain + CrewAI
-- **Backend**: FastAPI
-- **Frontend**: Streamlit + Plotly
-- **Datos**: JSON/SQLite (prototipo)
-- **Seguridad**: Proxy de anonimización, validación multicapa
+- **IA**: Azure OpenAI Service (GPT-4o) con proxy / sanitización
+- **Orquestación Multi-Agente**: Azure AI Agent Service + Semantic Kernel + (LangChain / CrewAI evaluado)
+- **Playground / Prototipado**: Azure AI Foundry Playground para pruebas rápidas de prompts y flujos
+- **Grounding / Búsqueda**: Bing Search para contexto actualizado (riesgos geopolíticos / logísticos)
+- **Backend API**: FastAPI (servicios REST) + futuras extensiones async
+- **Frontend / Consola Dev**: React (Next.js) + Tailwind CSS + React Simple Maps + Plotly (UI producción); Streamlit (monitor y debugging interno)
+- **Persistencia**: Azure SQL Database (estructurado) + Azure Blob Storage (artefactos y reportes) + JSON/SQLite (fase prototipo local)
+- **Generación de Documentos**: Spire.Doc.Free (reportes Word programáticos)
+- **Conectividad DB**: PyODBC (driver SQL Server / Azure SQL)
+- **Seguridad**: Proxy de anonimización, validación multicapa, logging de auditoría
 
 ## 📁 Estructura del Proyecto
 
@@ -124,3 +128,77 @@ Este proyecto está diseñado para hackathon. Para contribuir:
 ---
 
 **🚀 ¡Listo para hackear con agentes inteligentes!** 🤖💻
+
+## 🛠️ Backend Technologies (Azure Ecosistema Detallado)
+
+| Componente | Rol Principal | Uso en MVP |
+|------------|---------------|-----------|
+| Azure AI Agent Service | Orquestación modular de workflows multi-agente | Definir y ejecutar pipelines coordinados (scoring, simulación, auditoría) |
+| Azure OpenAI Service | Modelos LLM (GPT-4o) para reasoning y generación | Análisis textual, resumen, explicación de factores de riesgo |
+| Azure AI Foundry Playground | Entorno visual de pruebas | Iterar prompts y comportamientos antes de codificarlos |
+| Semantic Kernel | Memoria contextual y plugins ligeros | Encapsular funciones de negocio (plugins financieros / reputación) |
+| Grounding con Bing Search | Contexto actualizado externo | Obtener señales reputacionales y macro-riesgos recientes |
+| Azure Blob Storage | Almacenamiento de artefactos | Guardar reportes, configuraciones de agentes, logs exportados |
+| Azure SQL Database | Base relacional central | Tablas: empresas, estados financieros, métricas agregadas, históricos de scoring |
+| FastAPI | Backend REST de alto desempeño | Endpoints: /score, /simulate, /reports, /health |
+| Streamlit | Consola interna de monitoreo | Visualizar flujo de agentes, métricas, experimentos |
+| Spire.Doc.Free | Generación de documentos | Creación de reportes auditables (DOCX/PDF) |
+| PyODBC | Conector a SQL Server/Azure SQL | CRUD y consultas parametrizadas seguras |
+
+### Flujo Conceptual
+1. FastAPI recibe solicitud de evaluación -> registra intento en Azure SQL.
+2. Orquestador (Azure AI Agent Service + Semantic Kernel) invoca agentes especializados.
+3. Agentes financieros / reputacionales consultan datos internos (Azure SQL) y contexto externo (Bing Search).
+4. Resultados parciales se consolidan; ScoringAgent genera puntaje y explicación.
+5. Reporte se compone (Spire.Doc.Free) y se almacena en Blob Storage; metadatos en Azure SQL.
+6. Streamlit muestra en tiempo real estados y logs depurados.
+
+### Próximos Pasos Técnicos Recomendados
+- Definir esquema inicial (DDL) de Azure SQL (empresas, estados_financieros, eventos_riesgo, scores, auditoria).
+- Implementar capa DAL con PyODBC y funciones parametrizadas.
+- Crear primer pipeline de agente en Semantic Kernel (plugin: calcular_ratios_financieros).
+- Añadir servicio de grounding: wrapper Bing Search con caché temporal.
+- Establecer convención de logging estructurado (JSON) para auditoría.
+- Template de reporte DOCX (placeholders para métricas clave y explicaciones SHAP/similars).
+
+> Esta sección formaliza la alineación del MVP con servicios Azure escalables manteniendo un camino claro desde prototipo local hasta producción regulada.
+
+## 🎨 Frontend Technologies
+
+| Tecnología | Rol | Uso en MVP |
+|------------|-----|-----------|
+| React | Librería UI declarativa | Componentes reutilizables (dashboards, formularios) |
+| Next.js | Framework full‑stack React | Routing, SSR/SSG para SEO y performance, API routes auxiliares |
+| Tailwind CSS | Framework CSS utility-first | Estilos consistentes rápidos, dark mode, responsive grid |
+| React Simple Maps | Visualización geográfica | Mapas de riesgo geopolítico / exposición logística |
+| Plotly | Gráficas interactivas | Series temporales, distribuciones, comparativos sectoriales |
+| Streamlit (interno) | Panel operativo dev | Observabilidad de agentes y experimentación rápida |
+
+### Estrategia de Capas UI
+1. Capa Pública (Next.js): Portal para analistas y decisores (login, dashboard riesgo, simulaciones).
+2. Capa Interna (Streamlit): Telemetría, tuning de prompts, inspección de logs.
+3. Librería de Componentes: Botones, tablas, cards de métricas, semáforos de riesgo (Tailwind + design tokens).
+4. Visual Data Layer: Hooks para fetching (SWR/React Query) sobre endpoints FastAPI.
+
+### Roadmap Frontend Inicial
+- Configurar monorepo o carpetas separadas (`/frontend` y `/backend`).
+- Bootstrap Next.js + Tailwind + ESLint + Prettier.
+- Definir theme (color scale riesgo: verde → amarillo → rojo + neutro gris).
+- Implementar layout base (sidebar navegación, header métricas globales, área contenido).
+- Componentes MVP: CardScore, TablaEmpresas, MapaExposicion, PanelSimulacion, TimelineEventos.
+- Integrar autenticación (futuro: Azure AD / Entra ID) placeholder local.
+
+### Endpoints Frontend ↔ Backend Planeados
+- GET /score/{empresa_id}
+- POST /score (nueva evaluación)
+- POST /simulate (escenario hipotético)
+- GET /reports/{id}
+- GET /companies (lista + filtros)
+- GET /risk/events (eventos reputacionales / externos)
+
+### Métricas de UX Relevantes
+- TTFD < 1s en dashboard principal (carga skeleton + fetch async)
+- Interacciones gráficas < 100ms (optimizar memoization)
+- Accesibilidad: Contraste AA y navegación teclado completa.
+
+> Esta sección describe la capa de presentación escalable complementaria al stack backend ya definido.

@@ -23,7 +23,7 @@
 ### 🏗️ **AGENTES DE INFRAESTRUCTURA** (Persona 3)
 1. **MasterOrchestrator**: Coordina el flujo completo entre todos los agentes
 2. **ScoringAgent**: Consolida resultados y genera scoring final
-3. **ScenarioSimulator**: Permite simulaciones "qué pasaría si"
+3. **ScenarioSimulator**: Permite simulaciones "qué pasaría si  "
 
 ---
 
@@ -31,51 +31,38 @@
 
 ### 👨‍💻 PERSONA 1 - AGENTES DE SEGURIDAD (8 horas)
 
-- [ ] 1.1 Implementar SecuritySupervisor básico (3 horas)
-  - Crear clase `SecuritySupervisor` con OpenAI GPT-3.5-turbo
-  - Implementar monitoreo básico de operaciones
-  - Crear sistema de alertas simple
-  - _Requerimientos: 1.4, 7.2_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T1.1 | Implementar SecuritySupervisor básico | Especialista Seguridad | 3h | API Key OpenAI | R1.4, R7.2 |
+| T1.2 | Desarrollar InputValidator | Especialista Seguridad | 3h | T1.1 completado | R7.1, R7.4 |
+| T1.3 | Crear AuditLogger básico | Especialista Seguridad | 2h | Ninguna | R9.1, R9.2 |
 
-- [ ] 1.2 Desarrollar InputValidator (3 horas)
-  - Crear `InputValidator` con detección de prompt injection
-  - Implementar sanitización de datos de entrada
-  - Integrar con proxy de seguridad para OpenAI
-  - _Requerimientos: 7.1, 7.4_
-
-- [ ] 1.3 Crear AuditLogger básico (2 horas)
-  - Implementar `AuditLogger` para trazabilidad
-  - Crear logs estructurados de operaciones
-  - _Requerimientos: 9.1, 9.2_
+**Detalles de implementación:**
+- [ ] **T1.1**: Crear clase `SecuritySupervisor` con OpenAI GPT-4o, implementar monitoreo básico de operaciones, crear sistema de alertas simple
+- [ ] **T1.2**: Crear `InputValidator` con detección de prompt injection, implementar sanitización de datos de entrada, integrar con proxy de seguridad para OpenAI  
+- [ ] **T1.3**: Implementar `AuditLogger` para trazabilidad, crear logs estructurados de operaciones
 
 ### 👩‍💻 PERSONA 2 - AGENTE FINANCIERO CORE (8 horas)
 
-- [ ] 2.1 Implementar FinancialAgent (5 horas)
-  - Crear `FinancialAgent` usando OpenAI GPT-4
-  - Desarrollar prompts especializados para análisis financiero
-  - Implementar cálculo de ratios clave (liquidez, solvencia, rentabilidad)
-  - Crear parser básico para estados financieros SCVS
-  - _Requerimientos: 2.1, 3.1, 3.2_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T2.1 | Implementar FinancialAgent | Especialista Financiero | 5h | API Key OpenAI | R2.1, R3.1, R3.2 |
+| T2.2 | Desarrollar procesador de datos financieros | Especialista Financiero | 3h | T2.1 completado | R2.4 |
 
-- [ ] 2.2 Desarrollar procesador de datos financieros (3 horas)
-  - Crear `SCVSProcessor` para extraer datos estructurados
-  - Implementar validación de formato de estados financieros
-  - Desarrollar normalización de datos financieros
-  - _Requerimientos: 2.4_
+**Detalles de implementación:**
+- [ ] **T2.1**: Crear `FinancialAgent` usando OpenAI GPT-4o, desarrollar prompts especializados para análisis financiero, implementar cálculo de ratios clave (liquidez, solvencia, rentabilidad), crear parser básico para estados financieros SCVS
+- [ ] **T2.2**: Crear `SCVSProcessor` para extraer datos estructurados, implementar validación de formato de estados financieros, desarrollar normalización de datos financieros
 
 ### 👨‍💻 PERSONA 3 - INFRAESTRUCTURA MVP (8 horas)
 
-- [ ] 3.1 Implementar MasterOrchestrator (4 horas)
-  - Crear `MasterOrchestrator` con LangChain y CrewAI
-  - Implementar coordinación secuencial de agentes
-  - Configurar conexiones seguras a OpenAI APIs
-  - _Requerimientos: 1.1, 3.3_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T3.1 | Implementar MasterOrchestrator | Especialista Arquitectura | 4h | API Key OpenAI | R1.1, R3.3 |
+| T3.2 | Desarrollar API y frontend básico | Especialista Arquitectura | 4h | Ninguna | R5.1 |
 
-- [ ] 3.2 Desarrollar API y frontend básico (4 horas)
-  - Crear FastAPI con endpoints básicos
-  - Implementar frontend simple con Streamlit
-  - Crear formulario de carga de datos
-  - _Requerimientos: 5.1_
+**Detalles de implementación:**
+- [ ] **T3.1**: Crear `MasterOrchestrator` con LangChain y CrewAI, implementar coordinación secuencial de agentes, configurar conexiones seguras a OpenAI APIs
+- [ ] **T3.2**: Crear FastAPI con endpoints básicos, implementar frontend simple con Streamlit, crear formulario de carga de datos
 
 ---
 
@@ -83,48 +70,36 @@
 
 ### 👨‍💻 PERSONA 1 - COMPLETAR SEGURIDAD (8 horas)
 
-- [ ] 4.1 Implementar OutputSanitizer (4 horas)
-  - Crear `OutputSanitizer` para validar respuestas de modelos
-  - Implementar filtros contra información sensible
-  - Desarrollar sistema de explicabilidad segura
-  - _Requerimientos: 7.1, 4.2_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T4.1 | Implementar OutputSanitizer | Especialista Seguridad | 4h | T1.1, T1.2 completados | R7.1, R4.2 |
+| T4.2 | Mejorar sistema de monitoreo | Especialista Seguridad | 4h | T4.1 completado | R7.2, R7.3 |
 
-- [ ] 4.2 Mejorar sistema de monitoreo (4 horas)
-  - Expandir `SecuritySupervisor` con detección avanzada
-  - Implementar alertas en tiempo real
-  - Crear dashboard de seguridad básico
-  - _Requerimientos: 7.2, 7.3_
+**Detalles de implementación:**
+- [ ] **T4.1**: Crear `OutputSanitizer` para validar respuestas de modelos, implementar filtros contra información sensible, desarrollar sistema de explicabilidad segura
+- [ ] **T4.2**: Expandir `SecuritySupervisor` con detección avanzada, implementar alertas en tiempo real, crear dashboard de seguridad básico
 
 ### 👩‍💻 PERSONA 2 - AGENTES REPUTACIONAL Y COMPORTAMENTAL (8 horas)
 
-- [ ] 5.1 Implementar ReputationalAgent (4 horas)
-  - Crear `ReputationalAgent` usando OpenAI GPT-3.5-turbo
-  - Desarrollar prompts para análisis de sentimientos
-  - Implementar web scraper seguro básico para redes sociales
-  - Crear scoring de reputación online
-  - _Requerimientos: 2.2, 3.1, 3.2_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T5.1 | Implementar ReputationalAgent | Especialista Financiero | 4h | T2.1 completado | R2.2, R3.1, R3.2 |
+| T5.2 | Desarrollar BehavioralAgent | Especialista Financiero | 4h | T5.1 completado | R2.3, R3.1, R3.2 |
 
-- [ ] 5.2 Desarrollar BehavioralAgent (4 horas)
-  - Crear `BehavioralAgent` usando OpenAI GPT-4
-  - Implementar análisis de referencias comerciales
-  - Desarrollar evaluación de patrones de comportamiento
-  - Crear procesador de datos no estructurados
-  - _Requerimientos: 2.3, 3.1, 3.2_
+**Detalles de implementación:**
+- [ ] **T5.1**: Crear `ReputationalAgent` usando OpenAI GPT-4o, desarrollar prompts para análisis de sentimientos, implementar web scraper seguro básico para redes sociales, crear scoring de reputación online
+- [ ] **T5.2**: Crear `BehavioralAgent` usando OpenAI GPT-4o, implementar análisis de referencias comerciales, desarrollar evaluación de patrones de comportamiento, crear procesador de datos no estructurados
 
 ### 👨‍💻 PERSONA 3 - SCORING Y SIMULACIÓN (8 horas)
 
-- [ ] 6.1 Implementar ScoringAgent (5 horas)
-  - Crear `ScoringAgent` usando OpenAI GPT-4
-  - Desarrollar algoritmo de consolidación de resultados
-  - Implementar generación de scoring 0-1000
-  - Crear sistema de explicabilidad del scoring
-  - _Requerimientos: 4.1, 4.2, 4.3_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T6.1 | Implementar ScoringAgent | Especialista Arquitectura | 5h | T3.1 completado | R4.1, R4.2, R4.3 |
+| T6.2 | Desarrollar ScenarioSimulator básico | Especialista Arquitectura | 3h | T6.1 completado | R6.1, R6.2 |
 
-- [ ] 6.2 Desarrollar ScenarioSimulator básico (3 horas)
-  - Crear `ScenarioSimulator` para análisis "qué pasaría si"
-  - Implementar recálculo dinámico de scoring
-  - Desarrollar comparación de escenarios
-  - _Requerimientos: 6.1, 6.2_
+**Detalles de implementación:**
+- [ ] **T6.1**: Crear `ScoringAgent` usando OpenAI GPT-4o, desarrollar algoritmo de consolidación de resultados, implementar generación de scoring 0-1000, crear sistema de explicabilidad del scoring
+- [ ] **T6.2**: Crear `ScenarioSimulator` para análisis "qué pasaría si", implementar recálculo dinámico de scoring, desarrollar comparación de escenarios
 
 ---
 
@@ -132,57 +107,33 @@
 
 ### 🤝 INTEGRACIÓN COMPLETA (TODOS - 12 horas)
 
-- [ ] 7.1 Integrar agentes de seguridad con sistema (4 horas)
-  - Conectar SecuritySupervisor con MasterOrchestrator
-  - Integrar InputValidator con todos los agentes de negocio
-  - Conectar OutputSanitizer con ScoringAgent
-  - Integrar AuditLogger en todo el flujo
-  - _Requerimientos: 1.4, 7.2_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T7.1 | Integrar agentes de seguridad con sistema | Todos | 4h | T1.1, T1.2, T4.1 completados | R1.4, R7.2 |
+| T7.2 | Integrar agentes de negocio con orquestador | Todos | 4h | T2.1, T5.1, T5.2 completados | R3.3, R3.4 |
+| T7.3 | Completar integración con ScoringAgent | Todos | 2h | T6.1 completado | R4.4 |
+| T7.4 | Testing y refinamiento del sistema completo | Todos | 2h | T7.1, T7.2, T7.3 completados | R10.1 |
 
-- [ ] 7.2 Integrar agentes de negocio con orquestador (4 horas)
-  - Conectar FinancialAgent, ReputationalAgent y BehavioralAgent
-  - Configurar flujo de datos entre agentes
-  - Implementar manejo de errores y fallbacks
-  - _Requerimientos: 3.3, 3.4_
-
-- [ ] 7.3 Completar integración con ScoringAgent (2 horas)
-  - Conectar todos los resultados con ScoringAgent
-  - Implementar consolidación final de scoring
-  - Integrar ScenarioSimulator con el sistema completo
-  - _Requerimientos: 4.4_
-
-- [ ] 7.4 Testing y refinamiento del sistema completo (2 horas)
-  - Probar flujo completo end-to-end
-  - Corregir bugs de integración
-  - Optimizar rendimiento básico
-  - _Requerimientos: 10.1_
+**Detalles de implementación:**
+- [ ] **T7.1**: Conectar SecuritySupervisor con MasterOrchestrator, integrar InputValidator con todos los agentes de negocio, conectar OutputSanitizer con ScoringAgent, integrar AuditLogger en todo el flujo
+- [ ] **T7.2**: Conectar FinancialAgent, ReputationalAgent y BehavioralAgent, configurar flujo de datos entre agentes, implementar manejo de errores y fallbacks
+- [ ] **T7.3**: Conectar todos los resultados con ScoringAgent, implementar consolidación final de scoring, integrar ScenarioSimulator con el sistema completo
+- [ ] **T7.4**: Probar flujo completo end-to-end, corregir bugs de integración, optimizar rendimiento básico
 
 ### 🎯 PREPARACIÓN DE DEMO Y PITCH (TODOS - 12 horas)
 
-- [ ] 8.1 Mejorar dashboard para demo (4 horas)
-  - Crear visualizaciones impresionantes del scoring
-  - Implementar explicabilidad visual de factores
-  - Agregar comparación sectorial básica
-  - Desarrollar simulador interactivo
-  - _Requerimientos: 5.2, 5.3, 5.4_
+| ID | Tarea | Responsable | Duración | Dependencias | Requerimientos |
+|----|-------|-------------|----------|--------------|----------------|
+| T8.1 | Mejorar dashboard para demo | Todos | 4h | T7.4 completado | R5.2, R5.3, R5.4 |
+| T8.2 | Preparar datos de demo realistas | Todos | 3h | T8.1 completado | R2.1 |
+| T8.3 | Crear documentación y pitch | Todos | 3h | T8.2 completado | R9.2 |
+| T8.4 | Ensayo final y optimización | Todos | 2h | T8.3 completado | Final demo |
 
-- [ ] 8.2 Preparar datos de demo realistas (3 horas)
-  - Crear datasets de PYMEs ecuatorianas realistas
-  - Preparar casos de uso diversos (alto, medio, bajo riesgo)
-  - Configurar escenarios de simulación interesantes
-  - _Requerimientos: 2.1_
-
-- [ ] 8.3 Crear documentación y pitch (3 horas)
-  - Documentar arquitectura y agentes implementados
-  - Crear slides de presentación (máx 10 minutos)
-  - Preparar demo script con casos de uso
-  - _Requerimientos: 9.2_
-
-- [ ] 8.4 Ensayo final y optimización (2 horas)
-  - Ensayar presentación completa
-  - Optimizar UX para demo
-  - Últimos ajustes al sistema
-  - _Requerimientos: Final demo_
+**Detalles de implementación:**
+- [ ] **T8.1**: Crear visualizaciones impresionantes del scoring, implementar explicabilidad visual de factores, agregar comparación sectorial básica, desarrollar simulador interactivo
+- [ ] **T8.2**: Crear datasets de PYMEs ecuatorianas realistas, preparar casos de uso diversos (alto, medio, bajo riesgo), configurar escenarios de simulación interesantes
+- [ ] **T8.3**: Documentar arquitectura y agentes implementados, crear slides de presentación (máx 10 minutos), preparar demo script con casos de uso
+- [ ] **T8.4**: Ensayar presentación completa, optimizar UX para demo, últimos ajustes al sistema
 
 ---
 
@@ -190,7 +141,7 @@
 
 ### Backend
 - **LangChain** + **CrewAI** (coordinación de agentes)
-- **OpenAI APIs** (GPT-4 + GPT-3.5-turbo con proxy de seguridad)
+- **OpenAI APIs** (GPT-4o con proxy de seguridad)
 - **FastAPI** (API rápida y robusta)
 - **Python** con librerías estándar
 
