@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 # Import Azure OpenAI Service
-from ...infrastructure_agents.services.azure_openai_service import AzureOpenAIService, OpenAIRequest
+from ...infrastructure_agents.services.azure_openai_service_enhanced import OpenAIRequest
 
 class SanitizationResult(BaseModel):
     """
@@ -17,7 +17,7 @@ class SanitizationResult(BaseModel):
     pii_detected: bool = Field(description="True si se detectó información personal identificable", default=False)
     sensitive_data_types: list = Field(description="Lista de tipos de datos sensibles detectados", default_factory=list)
 
-async def sanitize_output(azure_service: AzureOpenAIService, generated_text: str) -> SanitizationResult:
+async def sanitize_output(azure_service, generated_text: str) -> SanitizationResult:
     """
     Analiza un texto generado por una IA para filtrar información sensible.
     """

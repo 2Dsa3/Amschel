@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 # Import Azure OpenAI Service
-from ...infrastructure_agents.services.azure_openai_service import AzureOpenAIService, OpenAIRequest
+from ...infrastructure_agents.services.azure_openai_service_enhanced import OpenAIRequest
 
 class SupervisionReport(BaseModel):
     """
@@ -18,7 +18,7 @@ class SupervisionReport(BaseModel):
     recommended_action: Literal["Ninguna", "Revisión Manual Requerida", "Alerta de Seguridad Crítica"] = Field(description="La acción recomendada a seguir.")
     critical_alert: bool = Field(description="True si se requiere bloquear operaciones inmediatamente", default=False)
 
-async def run_security_supervision(azure_service: AzureOpenAIService, log_file_path: str = "audit.log") -> SupervisionReport:
+async def run_security_supervision(azure_service, log_file_path: str = "audit.log") -> SupervisionReport:
     """
     Lee los últimos eventos del log de auditoría y los analiza en busca de patrones anómalos.
     """

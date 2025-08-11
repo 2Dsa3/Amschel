@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from typing import List
 
 # Import Azure OpenAI Service
-from ..infrastructure_agents.services.azure_openai_service import AzureOpenAIService, OpenAIRequest
+from ..infrastructure_agents.services.azure_openai_service_enhanced import OpenAIRequest
 
 class ReputationAnalysisResult(BaseModel):
     """
@@ -20,7 +20,7 @@ class ReputationAnalysisResult(BaseModel):
     success: bool = Field(description="Indica si el análisis fue exitoso", default=True)
     tokens_used: int = Field(description="Tokens utilizados en el análisis", default=0)
 
-async def analyze_reputation(azure_service: AzureOpenAIService, social_media_text: str) -> ReputationAnalysisResult:
+async def analyze_reputation(azure_service, social_media_text: str) -> ReputationAnalysisResult:
     """
     Analiza un cuerpo de texto de redes sociales y extrae un análisis de reputación usando Azure OpenAI.
     """
@@ -78,7 +78,20 @@ async def analyze_reputation(azure_service: AzureOpenAIService, social_media_tex
 
         # Parse JSON response
         try:
-            result_data = json.loads(response.response_text)
+            # Clean the response text first
+            response_content = response.response_text.strip()
+            
+            # Try to extract JSON if it's wrapped in markdown
+            if "```json" in response_content:
+                start = response_content.find("```json") + 7
+                end = response_content.find("```", start)
+                response_content = response_content[start:end].strip()
+            elif "```" in response_content:
+                start = response_content.find("```") + 3
+                end = response_content.find("```", start)
+                response_content = response_content[start:end].strip()
+            
+            result_data = json.loads(response_content)
             return ReputationAnalysisResult(
                 sentimiento_general=result_data.get("sentimiento_general", "Neutral"),
                 puntaje_sentimiento=float(result_data.get("puntaje_sentimiento", 0.0)),
@@ -88,14 +101,38 @@ async def analyze_reputation(azure_service: AzureOpenAIService, social_media_tex
                 success=True,
                 tokens_used=response.tokens_used
             )
-        except json.JSONDecodeError:
-            # Fallback if JSON parsing fails
+        except json.JSONDecodeError as e:
+            # If JSON parsing fails, try to extract meaningful content from the raw response
+            raw_response = response.response_text
+            
+            # Try to determine sentiment from the raw response
+            sentimiento = "Neutral"
+            puntaje = 0.0
+            
+            # Simple sentiment detection
+            positive_words = ["excelente", "bueno", "positivo", "recomendado", "calidad", "profesional"]
+            negative_words = ["malo", "pésimo", "negativo", "problema", "queja", "deficiente"]
+            
+            raw_lower = raw_response.lower()
+            positive_count = sum(1 for word in positive_words if word in raw_lower)
+            negative_count = sum(1 for word in negative_words if word in raw_lower)
+            
+            if positive_count > negative_count:
+                sentimiento = "Positivo"
+                puntaje = 0.6
+            elif negative_count > positive_count:
+                sentimiento = "Negativo"
+                puntaje = -0.4
+            else:
+                sentimiento = "Neutral"
+                puntaje = 0.0
+            
             return ReputationAnalysisResult(
-                sentimiento_general="Positivo",
-                puntaje_sentimiento=0.5,
-                temas_positivos=["Análisis disponible"],
-                temas_negativos=["Ver respuesta completa"],
-                resumen_ejecutivo=response.response_text[:200] + "...",
+                sentimiento_general=sentimiento,
+                puntaje_sentimiento=puntaje,
+                temas_positivos=["Análisis extraído de respuesta no estructurada"],
+                temas_negativos=["Ver análisis completo"],
+                resumen_ejecutivo=raw_response[:300] + "..." if len(raw_response) > 300 else raw_response,
                 success=True,
                 tokens_used=response.tokens_used
             )

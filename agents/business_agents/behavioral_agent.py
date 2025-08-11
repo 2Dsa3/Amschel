@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 # Import Azure OpenAI Service
-from ..infrastructure_agents.services.azure_openai_service import AzureOpenAIService, OpenAIRequest
+from ..infrastructure_agents.services.azure_openai_service_enhanced import OpenAIRequest
 
 class BehavioralAnalysisResult(BaseModel):
     """
@@ -18,7 +18,7 @@ class BehavioralAnalysisResult(BaseModel):
     success: bool = Field(description="Indica si el análisis fue exitoso", default=True)
     tokens_used: int = Field(description="Tokens utilizados en el análisis", default=0)
 
-async def analyze_behavior(azure_service: AzureOpenAIService, behavioral_data_text: str) -> BehavioralAnalysisResult:
+async def analyze_behavior(azure_service, behavioral_data_text: str) -> BehavioralAnalysisResult:
     """
     Analiza un texto con referencias e historial de pagos y extrae un análisis de comportamiento usando Azure OpenAI.
     """
