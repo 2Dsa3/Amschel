@@ -1,82 +1,86 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import './SocialLinksInput.css';
 
+// Simple URL validator
 function isValidUrl(url) {
-  try {
-    new URL(url);
-    return true;
-  } catch (_) {
-    return false;
-  }
+    if (!url) return true; // empty allowed until submit
+    try { new URL(url); return true; } catch { return false; }
 }
 
+/**
+ * Controlled SocialLinksInput
+ * Props:
+ *  - links: string[] (required)
+ *  - onChange: (updated: string[]) => void
+ */
 const SocialLinksInput = ({ links = [], onChange }) => {
-  const [socialLinks, setSocialLinks] = useState(links.length ? links : ['']);
-  const [errors, setErrors] = useState([]);
+    const errors = useMemo(() => links.map(l => (l && !isValidUrl(l) ? 'Invalid URL' : '')), [links]);
 
-  const handleInputChange = (idx, value) => {
-    const updatedLinks = [...socialLinks];
-    updatedLinks[idx] = value;
-    setSocialLinks(updatedLinks);
-    if (onChange) onChange(updatedLinks);
-    validateLinks(updatedLinks);
-  };
+    const updateAt = (idx, value) => {
+        const next = [...links];
+        next[idx] = value;
+        onChange && onChange(next);
+    };
 
-  const handleAddField = () => {
-    setSocialLinks([...socialLinks, '']);
-    setErrors([...errors, '']);
-  };
+    const addField = () => {
+        onChange && onChange([...links, '']);
+    };
 
-  const handleRemoveField = (idx) => {
-    const updatedLinks = socialLinks.filter((_, i) => i !== idx);
-    setSocialLinks(updatedLinks);
-    setErrors(errors.filter((_, i) => i !== idx));
-    if (onChange) onChange(updatedLinks);
-  };
+    const removeField = (idx) => {
+        const next = links.filter((_, i) => i !== idx);
+        onChange && onChange(next.length ? next : ['']);
+    };
 
-  const validateLinks = (linksArr) => {
-    const newErrors = linksArr.map(link =>
-      link && !isValidUrl(link) ? 'Invalid URL' : ''
-    );
-    setErrors(newErrors);
-  };
+    return (
+        <div className="sl-wrapper">
+            <div className="sl-header">
+                <div className="max-w-md mx-auto text-center">
+                    <label className="sl-label">Social Media Links</label>
+                    <p className="sl-hint">Add public profiles (Facebook, Instagram, Twitter (X)).</p>
+                </div>
+            </div>
 
-  return (
-    <div className="social-links-input-container">
-      <label className="block text-sm font-medium text-gray-700 mb-2">Social Media Links</label>
-      {socialLinks.map((link, idx) => (
-        <div key={idx} className="flex items-center mb-2">
-          <input
-            type="text"
-            className={`social-link-input border rounded px-3 py-2 w-full mr-2 ${errors[idx] ? 'border-red-500' : 'border-gray-300'}`}
-            placeholder="Enter social media URL"
-            value={link}
-            onChange={e => handleInputChange(idx, e.target.value)}
-            aria-label={`Social media link ${idx + 1}`}
-          />
-          <button
-            type="button"
-            className="delete-btn text-red-500 hover:text-red-700 ml-1"
-            onClick={() => handleRemoveField(idx)}
-            aria-label="Delete link"
-            disabled={socialLinks.length === 1}
-          >
-            &times;
-          </button>
+            <div className="sl-fields">
+                {links.map((link, idx) => {
+                    const hasError = !!errors[idx];
+                    return (
+                        <div key={idx} className="sl-row sl-row-animate">
+                            <div className="sl-input-wrap">
+                                <input
+                                    id={`social-link-${idx}`}
+                                    type="url"
+                                    className={`sl-input ${hasError ? 'sl-input-invalid' : ''}`}
+                                    placeholder="https://linkedin.com/in/yourprofile"
+                                    value={link}
+                                    onChange={(e) => updateAt(idx, e.target.value.trim())}
+                                    aria-invalid={hasError}
+                                    aria-describedby={hasError ? `social-link-${idx}-error` : undefined}
+                                />
+                                {links.length > 1 && (
+                                    <button
+                                        type="button"
+                                        aria-label={`Remove link ${idx + 1}`}
+                                        className="sl-remove-btn"
+                                        onClick={() => removeField(idx)}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                            {hasError && (
+                                <p id={`social-link-${idx}-error`} className="sl-error">{errors[idx]}</p>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="sl-actions">
+                <button type="button" onClick={addField} className="sl-add-btn">+ Add another link</button>
+                {errors.some(e => e) && <span className="sl-error-inline">One or more links are invalid.</span>}
+            </div>
         </div>
-      ))}
-      {errors.some(e => e) && (
-        <div className="text-red-500 text-xs mb-2">Please enter valid URLs.</div>
-      )}
-      <button
-        type="button"
-        className="add-btn bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        onClick={handleAddField}
-      >
-        Add
-      </button>
-    </div>
-  );
+    );
 };
 
 export default SocialLinksInput;
