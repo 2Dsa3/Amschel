@@ -27,8 +27,6 @@ function App() {
       <main ref={mainRef}>
       
         <SocialLinksContainer />
-        <
-
       </main>
     </>
   );
