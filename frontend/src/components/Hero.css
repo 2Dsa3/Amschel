@@ -1,0 +1,20 @@
+.hero { position: relative; overflow: hidden; padding: 5rem 1.5rem 6rem; background: linear-gradient(180deg,#FFFFFF 0%,#F3F6FA 90%); }
+.hero__inner { max-width: 1200px; margin: 0 auto; text-align: left; position: relative; z-index: 2; }
+.hero__eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; font-weight: 600; color: #3B82F6; margin: 0 0 1rem; }
+.hero__title { font-size: clamp(2.5rem,6vw,3.75rem); line-height: 1.05; margin: 0 0 1.25rem; font-weight: 700; color: #1F2937; max-width: 900px; }
+.hero__highlight { color: #2563EB; position: relative; }
+.hero__highlight:after { content: ""; position: absolute; left:0; bottom: .15em; height: .45em; width: 100%; background: rgba(59,130,246,0.25); z-index: -1; border-radius: .25em; }
+.hero__subtitle { font-size: clamp(1.05rem,1.4vw,1.25rem); line-height: 1.5; max-width: 860px; color: #374151; margin: 0 0 1.25rem; font-weight: 400; }
+.hero__impact { font-size: 1rem; color: #4B5563; max-width: 700px; margin: 0 0 2rem; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 1rem; }
+.btn { font-family: inherit; font-size: 1rem; padding: .95rem 1.5rem; border-radius: .75rem; border: 1px solid transparent; cursor: pointer; font-weight: 600; line-height: 1.2; transition: background .25s, color .25s, box-shadow .25s, border-color .25s; }
+.btn:focus-visible { outline: 3px solid #93C5FD; outline-offset: 2px; }
+.btn--primary { background: #1D4ED8; color: #fff; box-shadow: 0 6px 18px -6px rgba(29,78,216,0.45), 0 2px 4px -1px rgba(29,78,216,0.25); }
+.btn--primary:hover { background: #1E40AF; }
+.btn--secondary { background: #FFFFFF; color: #1F2937; border-color: #CBD5E1; }
+.btn--secondary:hover { border-color: #94A3B8; background: #F1F5F9; }
+.hero__bg { position: absolute; inset: 0; background: radial-gradient(circle at 75% 30%,rgba(59,130,246,0.18),transparent 60%), radial-gradient(circle at 15% 65%,rgba(99,102,241,0.15),transparent 55%); }
+.hero__bg:before, .hero__bg:after { content: ""; position: absolute; width: 900px; height: 900px; background: conic-gradient(from 180deg at 50% 50%, rgba(59,130,246,0.18), rgba(255,255,255,0)); filter: blur(70px); opacity: .55; }
+.hero__bg:before { top: -420px; left: -260px; }
+.hero__bg:after { bottom: -420px; right: -260px; }
+@media (max-width: 720px) { .hero { padding: 4.25rem 1.25rem 5rem; } .hero__actions { flex-direction: column; align-items: flex-start; } .btn { width: 100%; text-align: center; } }
