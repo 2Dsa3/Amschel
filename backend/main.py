@@ -12,7 +12,7 @@ app = FastAPI()
 
 # Allow requests from your Next.js frontend URL
 origins = [
-    "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 app.add_middleware(
@@ -22,6 +22,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/")
+def root():
+    return {"message": "Backend running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 memory_cache = {}
 
