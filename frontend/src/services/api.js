@@ -8,7 +8,7 @@ const api = axios.create({
 export const scrapeInstagram = async (username) => {
   try {
     const response = await api.post('/social-media', { username });
-    return response.data; // { followers, followees }
+    // return response.data; // { followers, followees }
   } catch (error) {
     // Throw a cleaned-up error message for the caller
     if (error.response && error.response.data && error.response.data.detail) {

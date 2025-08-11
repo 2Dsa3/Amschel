@@ -5,7 +5,7 @@ from typing import Optional
 
 import uvicorn
 
-from business_agents.webScrapper_agent import scrape_instagram_profile
+from business_agents.webScrappers.instagramScrapper import scrape_instagram_profile
 
 app = FastAPI()
 
@@ -43,6 +43,16 @@ class ScrapeResponse(BaseModel):
 class ScrapeResponse_Instagram(ScrapeResponse):
     pass
 
+class ScrapeResponse_Twitter(ScrapeResponse):
+    pass
+
+
+
+class balanceSheet(BaseModel):
+    total_assets: float
+    total_liabilities: float
+    equity: float
+
 @app.get("/social-media", response_model=ScrapeResponse)
 def get_social_media_instagram():
     return ScrapeResponse(followers=0, followees=0) 
@@ -51,10 +61,16 @@ def get_social_media_instagram():
 def scrape_social_media_instagram(data: UsernameRequest):
     try:
         followers, followees = scrape_instagram_profile(data.username)
-        return ScrapeResponse(followers=followers, followees=followees)
+        memory_cache["instagram"] = ScrapeResponse_Instagram(followers=followers, followees=followees)
+        return memory_cache["instagram"]
     except Exception as e:
         # Return error 400 if something goes wrong (e.g. user not found)
         raise HTTPException(status_code=400, detail=str(e))
     
+@app.get("balance-sheet")
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
