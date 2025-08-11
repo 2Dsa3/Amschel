@@ -1,0 +1,764 @@
+"""
+Azure Orchestrator - Orquestador usando Azure OpenAI Service
+Usa los servicios Azure OpenAI existentes sin CrewAI
+"""
+
+import asyncio
+import logging
+import json
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Import existing Azure OpenAI services
+from .infrastructure_agents.services.azure_openai_service import AzureOpenAIService, OpenAIRequest
+from .infrastructure_agents.config.azure_config import AzureOpenAIConfig
+
+# Import security agents
+from .infrastructure.security.input_validator import validate_company_data, CompanyDataValidationResult
+from .infrastructure.security.supervisor import run_security_supervision, SupervisionReport
+from .infrastructure.security.output_sanitizer import sanitize_output, SanitizationResult
+from .infrastructure.security.audit_logger import AuditLogger, create_audit_logger
+
+
+class EvaluationPhase(Enum):
+    """Fases de la evaluación de riesgo"""
+    PENDING = "pending"
+    SECURITY_VALIDATION = "security_validation"
+    BUSINESS_ANALYSIS = "business_analysis"
+    SCORING_CONSOLIDATION = "scoring_consolidation"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+@dataclass
+class CompanyData:
+    """Datos de entrada de la empresa para evaluación"""
+    company_id: str
+    company_name: str
+    financial_statements: str
+    social_media_data: str
+    commercial_references: str
+    payment_history: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EvaluationResult:
+    """Resultado completo de una evaluación de riesgo"""
+    evaluation_id: str
+    company_id: str
+    company_name: str
+    final_score: float
+    risk_level: str
+    financial_analysis: Dict[str, Any]
+    reputational_analysis: Dict[str, Any]
+    behavioral_analysis: Dict[str, Any]
+    consolidated_report: Dict[str, Any]
+    processing_time: float
+    timestamp: datetime
+    success: bool
+    errors: List[str] = field(default_factory=list)
+
+
+class AzureOrchestrator:
+    """
+    Orquestador usando Azure OpenAI Service
+    
+    Usa los servicios Azure OpenAI existentes para análisis de riesgo
+    """
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        
+        # Azure OpenAI service
+        self.azure_service: Optional[AzureOpenAIService] = None
+        self.config: Optional[AzureOpenAIConfig] = None
+        
+        # Audit Logger
+        self.audit_logger = create_audit_logger()
+        
+        # Statistics
+        self.stats = {
+            "total_evaluations": 0,
+            "successful_evaluations": 0,
+            "failed_evaluations": 0,
+            "average_processing_time": 0.0,
+            "total_tokens_used": 0
+        }
+        
+        self.logger.info("AzureOrchestrator initialized")
+    
+    async def initialize(self) -> bool:
+        """Inicializa el orquestador con Azure OpenAI"""
+        try:
+            self.logger.info("Initializing AzureOrchestrator...")
+            
+            # Load Azure OpenAI configuration
+            self.config = AzureOpenAIConfig.from_env()
+            self.azure_service = AzureOpenAIService(self.config)
+            
+            # Test connection
+            await self._test_azure_connection()
+            
+            self.logger.info("AzureOrchestrator initialized successfully")
+            self.logger.info(f"Using Azure endpoint: {self.config.endpoint}")
+            self.logger.info(f"GPT-4o model: {self.config.deployment_name}")
+            self.logger.info(f"o3-mini model: {self.config.deployment_name_mini}")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize AzureOrchestrator: {e}")
+            return False
+    
+    async def _test_azure_connection(self):
+        """Prueba la conexión con Azure OpenAI"""
+        try:
+            test_request = OpenAIRequest(
+                request_id="connection_test",
+                user_id="system",
+                agent_id="test",
+                prompt="Test connection",
+                max_tokens=10,
+                temperature=0.1,
+                timestamp=datetime.now()
+            )
+            
+            response = await self.azure_service.generate_completion(
+                test_request,
+                "You are a test assistant.",
+                use_mini_model=True  # Use o3-mini for test
+            )
+            
+            self.logger.info("Azure OpenAI connection test successful")
+        except Exception as e:
+            raise Exception(f"Azure OpenAI connection test failed: {e}")
+    
+    async def evaluate_company_risk(self, company_data: CompanyData) -> EvaluationResult:
+        """
+        Evalúa el riesgo de una empresa usando Azure OpenAI siguiendo el flujo de seguridad completo
+        
+        Flujo: SecuritySupervisor → InputValidator → BusinessAgents → OutputSanitizer → ScoringAgent → AuditLogger
+        """
+        evaluation_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{company_data.company_id}"
+        start_time = datetime.now()
+        
+        self.logger.info(f"Starting risk evaluation: {evaluation_id} for company: {company_data.company_name}")
+        self.stats["total_evaluations"] += 1
+        
+        try:
+            # Phase 0: Security Supervision
+            self.logger.info(f"Phase 0: Security supervision for {evaluation_id}")
+            security_status = await self._execute_security_supervision(evaluation_id, company_data.company_id)
+            if security_status.get("critical_alert", False):
+                return self._create_security_blocked_result(evaluation_id, company_data, start_time, "Critical security alert detected")
+            
+            # Phase 1: Input Validation
+            self.logger.info(f"Phase 1: Input validation for {evaluation_id}")
+            validation_result = await self._execute_input_validation(company_data, evaluation_id)
+            
+            # Be more tolerant - only block if risk level is CRITICAL or HIGH
+            risk_level = validation_result.get("overall_risk_level", "CRITICAL")
+            if risk_level in ["CRITICAL", "HIGH"]:
+                return self._create_validation_failed_result(evaluation_id, company_data, start_time, validation_result)
+            elif not validation_result.get("all_safe", False):
+                # Log warning but continue with evaluation
+                blocked_fields = validation_result.get("blocked_fields", [])
+                self.logger.warning(f"Some fields blocked but continuing evaluation: {blocked_fields}")
+                # Log security alert for monitoring
+                self.audit_logger.log_security_alert(
+                    evaluation_id, company_data.company_id, "PARTIAL_VALIDATION_FAILURE",
+                    {"blocked_fields": blocked_fields, "risk_level": risk_level}
+                )
+            
+            # Phase 2: Business Analysis (parallel execution)
+            self.logger.info(f"Phase 2: Business analysis for {evaluation_id}")
+            financial_result, reputational_result, behavioral_result = await self._execute_business_analysis(company_data)
+            
+            # Phase 3: Output Sanitization
+            self.logger.info(f"Phase 3: Output sanitization for {evaluation_id}")
+            sanitized_results = await self._execute_output_sanitization(
+                financial_result, reputational_result, behavioral_result, evaluation_id
+            )
+            
+            # Phase 4: Scoring Consolidation
+            self.logger.info(f"Phase 4: Scoring consolidation for {evaluation_id}")
+            consolidated_report = await self._consolidate_scoring(
+                sanitized_results["financial"], sanitized_results["reputational"], 
+                sanitized_results["behavioral"], company_data
+            )
+            
+            # Phase 5: Final Output Sanitization
+            self.logger.info(f"Phase 5: Final output sanitization for {evaluation_id}")
+            final_sanitized_report = await self._sanitize_final_output(consolidated_report, evaluation_id)
+            
+            # Calculate processing time
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            # Phase 6: Audit Logging
+            await self._log_evaluation_completion(evaluation_id, final_sanitized_report, processing_time)
+            
+            # Create final result
+            result = EvaluationResult(
+                evaluation_id=evaluation_id,
+                company_id=company_data.company_id,
+                company_name=company_data.company_name,
+                final_score=final_sanitized_report.get("final_score", 0.0),
+                risk_level=final_sanitized_report.get("risk_level", "unknown"),
+                financial_analysis=sanitized_results["financial"],
+                reputational_analysis=sanitized_results["reputational"],
+                behavioral_analysis=sanitized_results["behavioral"],
+                consolidated_report=final_sanitized_report,
+                processing_time=processing_time,
+                timestamp=datetime.now(),
+                success=True
+            )
+            
+            self.stats["successful_evaluations"] += 1
+            self._update_average_processing_time(processing_time)
+            
+            self.logger.info(f"Risk evaluation completed: {evaluation_id} in {processing_time:.2f}s")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Risk evaluation failed: {evaluation_id} - {e}")
+            self.stats["failed_evaluations"] += 1
+            
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            # Log the failure
+            await self._log_evaluation_failure(evaluation_id, str(e), processing_time)
+            
+            return EvaluationResult(
+                evaluation_id=evaluation_id,
+                company_id=company_data.company_id,
+                company_name=company_data.company_name,
+                final_score=0.0,
+                risk_level="error",
+                financial_analysis={},
+                reputational_analysis={},
+                behavioral_analysis={},
+                consolidated_report={},
+                processing_time=processing_time,
+                timestamp=datetime.now(),
+                success=False,
+                errors=[str(e)]
+            )
+    
+    def _basic_validation(self, company_data: CompanyData) -> bool:
+        """Validación básica de datos"""
+        if not company_data.company_name.strip():
+            return False
+        if not company_data.company_id.strip():
+            return False
+        return True
+    
+    async def _execute_business_analysis(self, company_data: CompanyData) -> tuple:
+        """Ejecuta análisis de negocio usando los agentes especializados"""
+        
+        # Import business agents
+        from .business_agents.financial_agent import analyze_financial_document
+        from .business_agents.reputational_agent import analyze_reputation
+        from .business_agents.behavioral_agent import analyze_behavior
+        
+        # Execute all business analyses in parallel using specialized agents
+        self.logger.info("🏦 Executing FinancialAgent...")
+        self.logger.info("🌟 Executing ReputationalAgent...")
+        self.logger.info("🎯 Executing BehavioralAgent...")
+        
+        tasks = [
+            analyze_financial_document(self.azure_service, company_data.financial_statements),
+            analyze_reputation(self.azure_service, company_data.social_media_data),
+            analyze_behavior(self.azure_service, f"{company_data.commercial_references}\n{company_data.payment_history}")
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        self.logger.info("✅ All business agents completed execution")
+        
+        # Process results and handle exceptions
+        financial_result = results[0] if not isinstance(results[0], Exception) else {"error": str(results[0]), "success": False}
+        reputational_result = results[1] if not isinstance(results[1], Exception) else {"error": str(results[1]), "success": False}
+        behavioral_result = results[2] if not isinstance(results[2], Exception) else {"error": str(results[2]), "success": False}
+        
+        # Convert Pydantic models to dictionaries for consistency
+        if hasattr(financial_result, 'dict'):
+            financial_result = financial_result.dict()
+        if hasattr(reputational_result, 'dict'):
+            reputational_result = reputational_result.dict()
+        if hasattr(behavioral_result, 'dict'):
+            behavioral_result = behavioral_result.dict()
+        
+        # Log business analysis results to audit trail
+        evaluation_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{company_data.company_id}"
+        
+        # Log each business agent execution
+        if financial_result.get("success", True):
+            self.audit_logger.log_business_analysis(
+                evaluation_id, company_data.company_id, "financial", 
+                financial_result, financial_result.get("tokens_used", 0) / 1000.0  # Convert to seconds estimate
+            )
+        
+        if reputational_result.get("success", True):
+            self.audit_logger.log_business_analysis(
+                evaluation_id, company_data.company_id, "reputational", 
+                reputational_result, reputational_result.get("tokens_used", 0) / 1000.0
+            )
+        
+        if behavioral_result.get("success", True):
+            self.audit_logger.log_business_analysis(
+                evaluation_id, company_data.company_id, "behavioral", 
+                behavioral_result, behavioral_result.get("tokens_used", 0) / 1000.0
+            )
+        
+        return financial_result, reputational_result, behavioral_result
+    
+    # Métodos de análisis de negocio removidos - ahora se usan los agentes especializados
+    
+    async def _consolidate_scoring(self, financial_result: Dict[str, Any], 
+                                 reputational_result: Dict[str, Any], 
+                                 behavioral_result: Dict[str, Any],
+                                 company_data: CompanyData) -> Dict[str, Any]:
+        """Consolida los resultados usando Azure OpenAI"""
+        try:
+            consolidation_prompt = f"""
+            Eres un experto analista de riesgo crediticio. Consolida los siguientes análisis y genera un scoring final de riesgo.
+
+            EMPRESA: {company_data.company_name}
+
+            ANÁLISIS FINANCIERO:
+            {json.dumps(financial_result, ensure_ascii=False, indent=2)}
+
+            ANÁLISIS REPUTACIONAL:
+            {json.dumps(reputational_result, ensure_ascii=False, indent=2)}
+
+            ANÁLISIS COMPORTAMENTAL:
+            {json.dumps(behavioral_result, ensure_ascii=False, indent=2)}
+
+            INSTRUCCIONES:
+            1. Genera un score final de 0 a 1000 (donde 1000 es el menor riesgo)
+            2. Clasifica el riesgo como: BAJO (750-1000), MEDIO (500-749), ALTO (0-499)
+            3. Proporciona una justificación detallada
+            4. Incluye factores contribuyentes principales
+            5. Da una recomendación crediticia clara
+
+            Responde ÚNICAMENTE en formato JSON:
+            {{
+                "final_score": <número>,
+                "risk_level": "<BAJO|MEDIO|ALTO>",
+                "justification": "<explicación detallada>",
+                "contributing_factors": [
+                    "<factor 1>",
+                    "<factor 2>",
+                    "<factor 3>"
+                ],
+                "credit_recommendation": "<recomendación>",
+                "confidence": <0.0-1.0>
+            }}
+            """
+            
+            request = OpenAIRequest(
+                request_id=f"consolidation_{datetime.now().strftime('%H%M%S')}",
+                user_id="system",
+                agent_id="consolidator",
+                prompt=consolidation_prompt,
+                max_tokens=1000,
+                temperature=0.1,
+                timestamp=datetime.now()
+            )
+            
+            response = await self.azure_service.generate_completion(
+                request,
+                "You are an expert credit risk analyst. Provide accurate JSON response.",
+                use_mini_model=False  # Use GPT-4o for complex consolidation
+            )
+            
+            self.stats["total_tokens_used"] += response.tokens_used
+            
+            # Parse JSON response
+            try:
+                response_content = response.response_text.strip()
+                
+                # Try to extract JSON if it's wrapped in markdown
+                if "```json" in response_content:
+                    start = response_content.find("```json") + 7
+                    end = response_content.find("```", start)
+                    response_content = response_content[start:end].strip()
+                elif "```" in response_content:
+                    start = response_content.find("```") + 3
+                    end = response_content.find("```", start)
+                    response_content = response_content[start:end].strip()
+                
+                consolidated_result = json.loads(response_content)
+                consolidated_result["success"] = True
+                consolidated_result["tokens_used"] = response.tokens_used
+                return consolidated_result
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse consolidation JSON: {e}")
+                return {
+                    "final_score": 500,
+                    "risk_level": "MEDIO",
+                    "justification": "Error en consolidación automática",
+                    "contributing_factors": ["Error de procesamiento"],
+                    "credit_recommendation": "Revisión manual requerida",
+                    "confidence": 0.0,
+                    "success": False,
+                    "error": str(e),
+                    "tokens_used": response.tokens_used
+                }
+            
+        except Exception as e:
+            self.logger.error(f"Scoring consolidation failed: {e}")
+            return {
+                "final_score": 0,
+                "risk_level": "ERROR",
+                "justification": f"Error en consolidación: {str(e)}",
+                "contributing_factors": ["Error de sistema"],
+                "credit_recommendation": "No se puede evaluar",
+                "confidence": 0.0,
+                "success": False,
+                "error": str(e),
+                "tokens_used": 0
+            }
+    
+    def _update_average_processing_time(self, processing_time: float):
+        """Actualiza el tiempo promedio de procesamiento"""
+        if self.stats["successful_evaluations"] == 1:
+            self.stats["average_processing_time"] = processing_time
+        else:
+            current_avg = self.stats["average_processing_time"]
+            count = self.stats["successful_evaluations"]
+            self.stats["average_processing_time"] = ((current_avg * (count - 1)) + processing_time) / count
+    
+    # ===== SECURITY METHODS =====
+    
+    async def _execute_security_supervision(self, evaluation_id: str, company_id: str = "unknown") -> Dict[str, Any]:
+        """Ejecuta supervisión de seguridad usando SecuritySupervisor"""
+        start_time = datetime.now()
+        try:
+            supervision_result = await run_security_supervision(self.azure_service)
+            
+            result = {
+                "anomaly_detected": supervision_result.anomaly_detected,
+                "confidence_score": supervision_result.confidence_score,
+                "summary": supervision_result.summary,
+                "recommended_action": supervision_result.recommended_action,
+                "critical_alert": supervision_result.critical_alert,
+                "success": True
+            }
+            
+            # Log to audit trail
+            processing_time = (datetime.now() - start_time).total_seconds()
+            self.audit_logger.log_security_supervision(evaluation_id, company_id, result, processing_time)
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Security supervision failed for {evaluation_id}: {e}")
+            result = {
+                "anomaly_detected": True,
+                "confidence_score": 0.8,
+                "summary": f"Security supervision error: {str(e)}",
+                "recommended_action": "Alerta de Seguridad Crítica",
+                "critical_alert": True,
+                "success": False,
+                "error": str(e)
+            }
+            
+            # Log failure to audit trail
+            processing_time = (datetime.now() - start_time).total_seconds()
+            self.audit_logger.log_security_supervision(evaluation_id, company_id, result, processing_time)
+            
+            return result
+    
+    async def _execute_input_validation(self, company_data: CompanyData, evaluation_id: str) -> Dict[str, Any]:
+        """Ejecuta validación de entrada usando InputValidator"""
+        start_time = datetime.now()
+        try:
+            # Convert CompanyData to dict for validation
+            company_dict = {
+                "company_name": company_data.company_name,
+                "financial_statements": company_data.financial_statements,
+                "social_media_data": company_data.social_media_data,
+                "commercial_references": company_data.commercial_references,
+                "payment_history": company_data.payment_history
+            }
+            
+            validation_result = await validate_company_data(self.azure_service, company_dict)
+            
+            result = {
+                "all_safe": validation_result.all_safe,
+                "field_results": [result.dict() for result in validation_result.field_results],
+                "blocked_fields": validation_result.blocked_fields,
+                "overall_risk_level": validation_result.overall_risk_level,
+                "success": True
+            }
+            
+            # Log to audit trail
+            processing_time = (datetime.now() - start_time).total_seconds()
+            self.audit_logger.log_input_validation(evaluation_id, company_data.company_id, result, processing_time)
+            
+            return result
+        except Exception as e:
+            self.logger.error(f"Input validation failed for {evaluation_id}: {e}")
+            result = {
+                "all_safe": False,
+                "field_results": [],
+                "blocked_fields": ["all"],
+                "overall_risk_level": "CRITICAL",
+                "success": False,
+                "error": str(e)
+            }
+            
+            # Log failure to audit trail
+            processing_time = (datetime.now() - start_time).total_seconds()
+            self.audit_logger.log_input_validation(evaluation_id, company_data.company_id, result, processing_time)
+            
+            return result
+    
+    async def _execute_output_sanitization(self, financial_result: Dict[str, Any], 
+                                         reputational_result: Dict[str, Any], 
+                                         behavioral_result: Dict[str, Any],
+                                         evaluation_id: str) -> Dict[str, Any]:
+        """Ejecuta sanitización de salidas usando OutputSanitizer"""
+        try:
+            # Sanitize each business agent output
+            sanitized_financial = await self._sanitize_agent_output(financial_result, "financial")
+            sanitized_reputational = await self._sanitize_agent_output(reputational_result, "reputational")
+            sanitized_behavioral = await self._sanitize_agent_output(behavioral_result, "behavioral")
+            
+            return {
+                "financial": sanitized_financial,
+                "reputational": sanitized_reputational,
+                "behavioral": sanitized_behavioral,
+                "success": True
+            }
+        except Exception as e:
+            self.logger.error(f"Output sanitization failed for {evaluation_id}: {e}")
+            return {
+                "financial": {"error": "Sanitization failed", "success": False},
+                "reputational": {"error": "Sanitization failed", "success": False},
+                "behavioral": {"error": "Sanitization failed", "success": False},
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _sanitize_agent_output(self, agent_result: Dict[str, Any], agent_type: str) -> Dict[str, Any]:
+        """Sanitiza la salida de un agente específico"""
+        try:
+            # Convert agent result to text for sanitization
+            result_text = json.dumps(agent_result, ensure_ascii=False)
+            
+            sanitization_result = await sanitize_output(self.azure_service, result_text)
+            
+            if sanitization_result.is_safe:
+                # Return original result if safe
+                return agent_result
+            else:
+                # Return sanitized version
+                try:
+                    sanitized_data = json.loads(sanitization_result.sanitized_text)
+                    sanitized_data["sanitization_applied"] = True
+                    sanitized_data["sanitization_details"] = sanitization_result.details
+                    return sanitized_data
+                except json.JSONDecodeError:
+                    # If sanitized text is not valid JSON, return safe fallback
+                    return {
+                        "sanitized_content": sanitization_result.sanitized_text,
+                        "sanitization_applied": True,
+                        "sanitization_details": sanitization_result.details,
+                        "agent_type": agent_type,
+                        "success": True
+                    }
+        except Exception as e:
+            self.logger.error(f"Agent output sanitization failed for {agent_type}: {e}")
+            return {
+                "error": f"Sanitization failed: {str(e)}",
+                "agent_type": agent_type,
+                "success": False
+            }
+    
+    async def _sanitize_final_output(self, consolidated_report: Dict[str, Any], evaluation_id: str) -> Dict[str, Any]:
+        """Sanitiza el reporte consolidado final"""
+        try:
+            report_text = json.dumps(consolidated_report, ensure_ascii=False)
+            sanitization_result = await sanitize_output(self.azure_service, report_text)
+            
+            if sanitization_result.is_safe:
+                return consolidated_report
+            else:
+                try:
+                    sanitized_report = json.loads(sanitization_result.sanitized_text)
+                    sanitized_report["final_sanitization_applied"] = True
+                    sanitized_report["final_sanitization_details"] = sanitization_result.details
+                    return sanitized_report
+                except json.JSONDecodeError:
+                    # Return safe fallback
+                    return {
+                        "final_score": consolidated_report.get("final_score", 500),
+                        "risk_level": consolidated_report.get("risk_level", "MEDIO"),
+                        "justification": "[CONTENIDO SANITIZADO POR SEGURIDAD]",
+                        "contributing_factors": ["Información sanitizada por privacidad"],
+                        "credit_recommendation": "Revisión manual requerida debido a sanitización",
+                        "confidence": 0.5,
+                        "final_sanitization_applied": True,
+                        "final_sanitization_details": sanitization_result.details,
+                        "success": True
+                    }
+        except Exception as e:
+            self.logger.error(f"Final output sanitization failed for {evaluation_id}: {e}")
+            return consolidated_report  # Return original if sanitization fails
+    
+    async def _log_evaluation_completion(self, evaluation_id: str, final_report: Dict[str, Any], processing_time: float):
+        """Registra la finalización exitosa de una evaluación"""
+        try:
+            audit_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "evaluation_id": evaluation_id,
+                "event": "EVALUATION_COMPLETED",
+                "final_score": final_report.get("final_score", 0),
+                "risk_level": final_report.get("risk_level", "unknown"),
+                "processing_time": processing_time,
+                "tokens_used": self.stats["total_tokens_used"],
+                "success": True
+            }
+            
+            # Write to audit log
+            with open("audit.log", "a", encoding="utf-8") as f:
+                f.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to log evaluation completion for {evaluation_id}: {e}")
+    
+    async def _log_evaluation_failure(self, evaluation_id: str, error_message: str, processing_time: float):
+        """Registra el fallo de una evaluación"""
+        try:
+            audit_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "evaluation_id": evaluation_id,
+                "event": "EVALUATION_FAILED",
+                "error": error_message,
+                "processing_time": processing_time,
+                "success": False
+            }
+            
+            # Write to audit log
+            with open("audit.log", "a", encoding="utf-8") as f:
+                f.write(json.dumps(audit_entry, ensure_ascii=False) + "\n")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to log evaluation failure for {evaluation_id}: {e}")
+    
+    def _create_security_blocked_result(self, evaluation_id: str, company_data: CompanyData, 
+                                      start_time: datetime, reason: str) -> EvaluationResult:
+        """Crea un resultado cuando la evaluación es bloqueada por seguridad"""
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        return EvaluationResult(
+            evaluation_id=evaluation_id,
+            company_id=company_data.company_id,
+            company_name=company_data.company_name,
+            final_score=0.0,
+            risk_level="SECURITY_BLOCKED",
+            financial_analysis={"error": "Blocked by security", "success": False},
+            reputational_analysis={"error": "Blocked by security", "success": False},
+            behavioral_analysis={"error": "Blocked by security", "success": False},
+            consolidated_report={"error": reason, "success": False},
+            processing_time=processing_time,
+            timestamp=datetime.now(),
+            success=False,
+            errors=[reason]
+        )
+    
+    def _create_validation_failed_result(self, evaluation_id: str, company_data: CompanyData, 
+                                       start_time: datetime, validation_result: Dict[str, Any]) -> EvaluationResult:
+        """Crea un resultado cuando la validación de entrada falla"""
+        processing_time = (datetime.now() - start_time).total_seconds()
+        blocked_fields = validation_result.get("blocked_fields", [])
+        
+        return EvaluationResult(
+            evaluation_id=evaluation_id,
+            company_id=company_data.company_id,
+            company_name=company_data.company_name,
+            final_score=0.0,
+            risk_level="VALIDATION_FAILED",
+            financial_analysis={"error": "Input validation failed", "success": False},
+            reputational_analysis={"error": "Input validation failed", "success": False},
+            behavioral_analysis={"error": "Input validation failed", "success": False},
+            consolidated_report={
+                "error": f"Input validation failed for fields: {', '.join(blocked_fields)}",
+                "blocked_fields": blocked_fields,
+                "overall_risk_level": validation_result.get("overall_risk_level", "CRITICAL"),
+                "success": False
+            },
+            processing_time=processing_time,
+            timestamp=datetime.now(),
+            success=False,
+            errors=[f"Validation failed for fields: {', '.join(blocked_fields)}"]
+        )
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Obtiene estadísticas del orquestador"""
+        return self.stats.copy()
+    
+    def get_audit_trail(self, evaluation_id: str) -> List[Dict[str, Any]]:
+        """Obtiene el trail de auditoría para una evaluación específica"""
+        return self.audit_logger.get_evaluation_audit_trail(evaluation_id)
+    
+    def get_recent_audit_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Obtiene los eventos de auditoría más recientes"""
+        return self.audit_logger.get_recent_events(limit)
+    
+    def _create_validation_failed_result(self, evaluation_id: str, company_data: CompanyData, 
+                                       start_time: datetime, validation_result: Dict[str, Any]) -> EvaluationResult:
+        """Crea un resultado cuando la validación de entrada falla"""
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        blocked_fields = validation_result.get("blocked_fields", [])
+        reason = f"Input validation failed. Blocked fields: {', '.join(blocked_fields)}"
+        
+        return EvaluationResult(
+            evaluation_id=evaluation_id,
+            company_id=company_data.company_id,
+            company_name=company_data.company_name,
+            final_score=0.0,
+            risk_level="VALIDATION_FAILED",
+            financial_analysis={"error": "Input validation failed", "success": False},
+            reputational_analysis={"error": "Input validation failed", "success": False},
+            behavioral_analysis={"error": "Input validation failed", "success": False},
+            consolidated_report={
+                "error": reason,
+                "validation_details": validation_result,
+                "success": False
+            },
+            processing_time=processing_time,
+            timestamp=datetime.now(),
+            success=False,
+            errors=[reason]
+        )
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Obtiene estadísticas del orquestador"""
+        return {
+            **self.stats,
+            "success_rate": (
+                self.stats["successful_evaluations"] / self.stats["total_evaluations"] 
+                if self.stats["total_evaluations"] > 0 else 0.0
+            ),
+            "using_azure": True,
+            "azure_endpoint": self.config.endpoint if self.config else None,
+            "gpt4o_model": self.config.deployment_name if self.config else None,
+            "o3mini_model": self.config.deployment_name_mini if self.config else None
+        }
+
+
+# Factory function for easy instantiation
+def create_azure_orchestrator() -> AzureOrchestrator:
+    """Crea una instancia del orquestador con Azure OpenAI"""
+    return AzureOrchestrator()
