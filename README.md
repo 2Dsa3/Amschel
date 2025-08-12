@@ -1,4 +1,4 @@
-# 🏦 PymeRisk - Sistema de Evaluación de Riesgo Financiero
+# 🏦 Aschmel.ai - Sistema de Evaluación de Riesgo Financiero
 
 ## 🚀 **ESTADO: FUNCIONAL Y DESPLEGADO**
 - **URL Deploy**: https://deploy-pymerisk-dhtmtkfxynnrd6wqzsztbu.streamlit.app/
@@ -116,7 +116,7 @@ Este proyecto está bajo la Licencia MIT.
 
 ## 👥 Autores
 
-- **Equipo PymeRisk** - Desarrollo inicial
+- **Equipo Aschmel.ai** - Desarrollo inicial
 
 ## 🙏 Agradecimientos
 
