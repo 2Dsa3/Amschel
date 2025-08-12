@@ -3,7 +3,7 @@
 ## 🚀 **ESTADO: FUNCIONAL Y DESPLEGADO**
 - **URL Deploy**: https://deploy-pymerisk-dhtmtkfxynnrd6wqzsztbu.streamlit.app/
 - **Versión**: 1.0 - Producción
-- **Última actualización**: Enero 2025
+- **Última actualización**: Agosto 2025
 
 ## 📋 Descripción
 
