@@ -1,33 +1,38 @@
 import React, { useCallback, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
+import { UploadCloud, FileText, X } from 'lucide-react';
 
-/**
- * BalanceUpload
- * Upload component for a company's balance sheet (PDF only) supporting drag & drop and click.
- * Props:
- *  - file: File | null
- *  - onChange: (file: File|null) => void
- */
-const BalanceUpload = ({ file, onChange }) => {
+const formatSize = (bytes) => {
+  if (!bytes && bytes !== 0) return '';
+  const units = ['B','KB','MB','GB'];
+  let i = 0; let val = bytes;
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+  return `${val.toFixed(val < 10 && i>0 ? 1 : 0)} ${units[i]}`;
+};
+
+const PDFDropzone = ({ label, file, onFileChange, inputId }) => {
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
 
-  const validateAndSet = useCallback((f) => {
-    if (!f) return; // ignore null
-    const isPdf = /\.pdf$/i.test(f.name) && f.type === 'application/pdf';
-    if (!isPdf) {
-      setError('Only PDF files are allowed.');
-      return;
-    }
-    setError('');
-    onChange && onChange(f);
-  }, [onChange]);
+  const validateAndSet = useCallback(
+    (f) => {
+      if (!f) return;
+      const isPdf = /\.pdf$/i.test(f.name) && f.type === 'application/pdf';
+      if (!isPdf) {
+        setError('Only PDF files are allowed.');
+        return;
+      }
+      setError('');
+      onFileChange(f);
+    },
+    [onFileChange]
+  );
 
-  const handleFiles = useCallback((files) => {
+  const handleFiles = (files) => {
     if (!files || !files.length) return;
     validateAndSet(files[0]);
-  }, [validateAndSet]);
+  };
 
   const onInputChange = (e) => {
     handleFiles(e.target.files);
@@ -42,7 +47,6 @@ const BalanceUpload = ({ file, onChange }) => {
   const onDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // only reset when leaving the container
     if (e.currentTarget.contains(e.relatedTarget)) return;
     setDragActive(false);
   };
@@ -56,30 +60,44 @@ const BalanceUpload = ({ file, onChange }) => {
     }
   };
 
-  const openDialog = () => {
+  const openDialog = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     inputRef.current?.click();
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      openDialog(e);
+    }
+  };
+
+  const handleClick = (e) => {
+    // Only handle if not triggered by keyboard
+    if (e.detail === 0) return; // Keyboard triggered click has detail = 0
+    openDialog(e);
+  };
+
+  const id = inputId || `${label.replace(/\s+/g, '-').toLowerCase()}-input`;
+
   return (
-    <div className="w-full max-w-xl">
-      <label className="block mb-1 text-sm font-semibold text-gray-700" htmlFor="balance-upload-input">
-        Balance Sheet (PDF)
-      </label>
+    <div className="bu-dropzone-wrapper">
       <div
         role="button"
         tabIndex={0}
-        onClick={openDialog}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDialog(); } }}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        aria-describedby={error ? 'balance-upload-error' : undefined}
-        className={`group relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 px-4 py-8 text-center select-none
-          ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}
-        `}
+        aria-describedby={error ? `${id}-error` : undefined}
+        aria-label={label}
+        className={`bu-dropzone ${dragActive ? 'bu-dropzone--active' : ''} ${file ? 'bu-dropzone--has-file' : ''}`}
       >
         <input
-          id="balance-upload-input"
+          id={id}
           ref={inputRef}
           type="file"
           accept="application/pdf,.pdf"
@@ -87,28 +105,76 @@ const BalanceUpload = ({ file, onChange }) => {
           onChange={onInputChange}
           aria-invalid={!!error}
         />
-        <div className="text-sm text-gray-700 font-medium">
-          {file ? 'Replace file' : 'Click or drag & drop to upload'}
+        <div className="bu-dz-icon">
+          {file ? <FileText size={24} /> : <UploadCloud size={24} />}
         </div>
-        <div className="mt-1 text-xs text-gray-500">
-          PDF only (max 1 file)
-        </div>
+        <div className="bu-dz-text-main">{file ? 'Replace PDF' : 'Click or drag & drop PDF'}</div>
+        <div className="bu-dz-text-sub">{label}</div>
+        <div className="bu-dz-meta">PDF only</div>
         {file && (
-          <p className="mt-3 text-xs text-gray-600 truncate w-full" title={file.name}>
-            Selected: <span className="font-semibold">{file.name}</span>
-          </p>
+          <div className="bu-file-info">
+            <p className="bu-file-name" title={file.name}>{file.name}</p>
+            <div className="bu-file-meta">
+              <span>{formatSize(file.size)}</span>
+              <span className="sep">•</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onFileChange(null); }}
+                className="bu-remove-btn"
+                aria-label="Remove file"
+              >
+                <X size={12} />
+                <span className="txt">Remove</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
-      {error && (
-        <p id="balance-upload-error" className="mt-2 text-xs text-red-600" role="alert">{error}</p>
-      )}
+      {error && <p id={`${id}-error`} className="bu-error" role="alert">{error}</p>}
     </div>
   );
 };
 
-BalanceUpload.propTypes = {
+PDFDropzone.propTypes = {
+  label: PropTypes.string.isRequired,
   file: PropTypes.instanceOf(File),
-  onChange: PropTypes.func,
+  onFileChange: PropTypes.func.isRequired,
+  inputId: PropTypes.string,
 };
 
-export default BalanceUpload;
+const BalanceAndInfoUpload = ({ files, onChange }) => {
+  const handleFileChange = (key, file) => {
+    onChange({ ...files, [key]: file });
+  };
+
+  return (
+    <div className="bu-wrapper">
+      <div className="bu-header">
+        <h2 className="bu-title">Financial Documents</h2>
+        <p className="bu-hint">Upload the Balance Sheet and a General Information PDF.</p>
+      </div>
+      <div className="bu-grid">
+        <PDFDropzone
+          label="Balance Sheet"
+          file={files.balanceSheet}
+          onFileChange={(f) => handleFileChange('balanceSheet', f)}
+        />
+        <PDFDropzone
+          label="General Information"
+          file={files.generalInfo}
+          onFileChange={(f) => handleFileChange('generalInfo', f)}
+        />
+      </div>
+    </div>
+  );
+};
+
+BalanceAndInfoUpload.propTypes = {
+  files: PropTypes.shape({
+    balanceSheet: PropTypes.instanceOf(File),
+    generalInfo: PropTypes.instanceOf(File),
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+};
+
+export default BalanceAndInfoUpload;

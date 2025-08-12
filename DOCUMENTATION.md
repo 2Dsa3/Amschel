@@ -4,12 +4,15 @@
 ### Índice
 1. [Visión General del Sistema](#visión-general-del-sistema)
 2. [Arquitectura Final](#arquitectura-final)
-3. [Orquestador Principal](#orquestador-principal)
-4. [Agentes de Negocio](#agentes-de-negocio)
-5. [Servicios Azure](#servicios-azure)
-6. [Configuración y Despliegue](#configuración-y-despliegue)
-7. [Testing y Validación](#testing-y-validación)
-8. [Métricas y Monitoreo](#métricas-y-monitoreo)
+3. [Arquitectura de Agentes y Flujo Interno](#arquitectura-de-agentes-y-flujo-interno)
+4. [Orquestador Principal](#orquestador-principal)
+5. [Agentes de Negocio](#agentes-de-negocio)
+6. [Agentes de Seguridad](#agentes-de-seguridad)
+7. [Servicios Azure](#servicios-azure)
+8. [Configuración y Despliegue](#configuración-y-despliegue)
+9. [Testing y Validación](#testing-y-validación)
+10. [Métricas y Monitoreo](#métricas-y-monitoreo)
+11. [Estado del Proyecto y Próximos Pasos](#estado-del-proyecto-y-próximos-pasos)
 
 ---
 
@@ -19,7 +22,7 @@ El sistema está diseñado para evaluar el riesgo crediticio de PYMEs (Pequeñas
 
 ### Objetivos Principales
 - **Evaluación Integral**: Análisis multidimensional del riesgo crediticio
-- **Automatización**: Reducción del tiempo de evaluación manual (15-20 segundos por evaluación)
+- **Automatización**: Reducción del tiempo de evaluación manual (40-60 segundos por evaluación)
 - **Explicabilidad**: Justificación clara de las decisiones de riesgo
 - **Escalabilidad**: Capacidad de procesar múltiples evaluaciones concurrentes
 - **Optimización de Costos**: Uso inteligente de GPT-4o y o3-mini según complejidad
@@ -28,8 +31,8 @@ El sistema está diseñado para evaluar el riesgo crediticio de PYMEs (Pequeñas
 - **Azure OpenAI Service**: GPT-4o para análisis complejos, o3-mini para tareas rápidas
 - **Python AsyncIO**: Procesamiento paralelo de agentes
 - **Pydantic**: Validación y estructuración de datos
-- **LangChain**: Framework para agentes de negocio existentes
 - **JSON**: Intercambio estructurado de datos entre componentes
+- **Módulos de Seguridad Propios**: Validación, supervisión, sanitización y auditoría
 
 ### Estado Actual
 ✅ **SISTEMA FUNCIONAL** - Orquestador principal operativo con 100% success rate
@@ -42,47 +45,202 @@ El sistema está diseñado para evaluar el riesgo crediticio de PYMEs (Pequeñas
 ## Arquitectura Final
 
 ### Estructura Final del Proyecto
-```
+```bash
 PymeRisk/
 ├── agents/
-│   ├── azure_orchestrator.py        # 🎯 ORQUESTADOR PRINCIPAL
-│   ├── business_agents/             # Agentes de análisis de negocio
-│   │   ├── behavioral_agent.py     # Análisis comportamental
-│   │   ├── financial_agent.py      # Análisis financiero
-│   │   └── reputational_agent.py   # Análisis reputacional
-│   ├── infrastructure_agents/      # Servicios Azure
-│   │   ├── infrastructure_service.py
-│   │   ├── config/azure_config.py
-│   │   └── services/
-│   │       ├── azure_openai_service.py
-│   │       ├── azure_sql_service.py
-│   │       ├── azure_blob_service.py
-│   │       ├── azure_ai_service.py
-│   │       └── semantic_kernel_service.py
-│   └── infrastructure/             # Componentes de soporte
-│       ├── scoring_agent.py
-│       ├── scenario_simulator.py
-│       └── security/
-├── test_azure_orchestrator.py      # Test principal
-├── test_quick_dual_models.py        # Test Azure OpenAI
-├── .env                            # Configuración
-└── main_integrated.py              # Aplicación principal
+│   ├── azure_orchestrator.py              # Orquestador Principal
+│   ├── business_agents/
+│   │   ├── financial_agent.py             # Análisis financiero (GPT-4o)
+│   │   ├── reputational_agent.py          # Análisis reputacional (o3-mini)
+│   │   └── behavioral_agent.py            # Análisis comportamental (o3-mini)
+│   ├── infrastructure/
+│   │   ├── scoring_agent.py               # Ponderación 60/20/20 (legacy soporte)
+│   │   ├── scenario_simulator.py          # Simulación de escenarios
+│   │   └── security/
+│   │       ├── input_validator.py         # Validación de entrada (o3-mini)
+│   │       ├── output_sanitizer.py        # Sanitización (o3-mini)
+│   │       ├── supervisor.py              # Supervisión de auditoría (GPT-4o)
+│   │       └── audit_logger.py            # Auditoría estructurada
+│   └── infrastructure_agents/
+│       ├── services/                      # Servicios Azure y utilidades
+│       │   ├── azure_openai_service_enhanced.py
+│       │   ├── rate_limit_handler.py
+│       │   └── ...
+│       ├── agent_connector.py (en evolución)
+│       └── infrastructure_service.py (en evolución)
+├── test_azure_orchestrator.py
+└── ...
 ```
 
-### Flujo de Datos Implementado
+---
+
+## Arquitectura de Agentes y Flujo Interno
+
+### 1. Categorías de Agentes
+
+A continuación se describen las familias de agentes con su propósito, archivos principales y modelo predominante utilizado. Este formato facilita una lectura rápida sin necesidad de interpretar una tabla amplia.
+
+#### A. Core / Orquestación
+- Objetivo: Coordinar el flujo completo de evaluación y asegurar la secuencia de fases.
+- Archivo Clave: `agents/azure_orchestrator.py`
+- Responsabilidades:
+  - Invocar fases de seguridad, negocio y consolidación
+  - Gestionar métricas y caché de resultados
+  - Manejo de errores y logging global
+- Modelos: GPT-4o y o3-mini (según fase disparada)
+
+#### B. Agentes de Negocio (Business Intelligence Layer)
+- Objetivo: Extraer señales estructuradas desde diferentes dimensiones de riesgo.
+- Archivos:
+  - Financiero: `business_agents/financial_agent.py`
+  - Reputacional: `business_agents/reputational_agent.py`
+  - Comportamental: `business_agents/behavioral_agent.py`
+- Modelos:
+  - Financiero → GPT-4o (análisis profundo y semántico)
+  - Reputacional → o3-mini (sentimiento + tópicos rápidos)
+  - Comportamental → o3-mini (clasificación y patrón)
+- Salidas: JSON estructurado por dominio (solvencia, sentimiento, patrón de pago, etc.)
+
+#### C. Agentes de Seguridad (Security Shield Layer)
+- Objetivo: Defender el pipeline antes, durante y después del análisis.
+- Archivos:
+  - Supervisión: `infrastructure/security/supervisor.py`
+  - Validación de Entrada: `infrastructure/security/input_validator.py`
+  - Sanitización de Salida: `infrastructure/security/output_sanitizer.py`
+  - Auditoría: `infrastructure/security/audit_logger.py` / `logger.py`
+- Modelos:
+  - Supervisor → GPT-4o (análisis contextual de logs)
+  - Validator / Sanitizer → o3-mini (latencia baja)
+- Funciones Clave:
+  - Detección de anomalías y abuso
+  - Prevención de prompt injection
+  - Enmascaramiento de PII
+  - Trazabilidad regulatoria
+
+#### D. Soporte / Infraestructura (Service & Resilience Layer)
+- Objetivo: Proveer servicios reutilizables y resiliencia operacional.
+- Archivos Clave:
+  - `infrastructure_agents/services/azure_openai_service_enhanced.py`
+  - `infrastructure_agents/services/rate_limit_handler.py`
+  - `infrastructure_agents/agent_connector.py` (en evolución)
+  - `infrastructure_agents/infrastructure_service.py` (en evolución)
+- Funciones:
+  - Rate limiting y retry backoff
+  - Selección de modelo y métricas de uso
+  - Abstracción de proveedores y futuras extensiones
+- Modelos: No aplica directamente (facilita acceso a modelos)
+
+#### E. Soporte Analítico (Value Derivation Layer)
+- Objetivo: Ponderación y simulación sobre resultados ya generados.
+- Archivos:
+  - `infrastructure/scoring_agent.py` (legacy compatible)
+  - `infrastructure/scenario_simulator.py`
+- Funciones:
+  - Cálculo de score 0–1000 (ponderación 60/20/20)
+  - Simulación what-if / stress testing
+- Modelos: GPT-4o en tareas de explicación avanzada (opcional)
+
+#### F. Flujo de Responsabilidades (Resumen Jerárquico)
+1. Seguridad Preventiva → Supervisor + Validator
+2. Extracción de Señales → Agentes de Negocio (paralelo)
+3. Higiene de Resultados → Sanitizer
+4. Inteligencia Integrada → Consolidación (GPT-4o)
+5. Protección Final → Sanitización global
+6. Evidencia y Trazabilidad → Auditoría estructurada
+
+### 2. Flujo Secuencial Real (Código `evaluate_company_risk`)
+
+1. Security Supervision (Supervisor)  
+   - Función: `run_security_supervision()`  
+   - Lee `audit.log` y detecta patrones anómalos.  
+   - Modelo: GPT-4o (análisis contextual complejo).  
+   - Bloquea solo si `critical_alert=True & confidence > 0.9`.
+2. Input Validation (Firewall de Prompt)  
+   - Función: `validate_company_data()` -> `validate_input_field()`  
+   - Analiza cada campo (nombre, estados, redes, referencias, pagos).  
+   - Modelo: o3-mini (rápido, bajo costo).  
+   - Continúa salvo detección maliciosa de alta confianza.
+3. Business Analysis (Ejecución Paralela)  
+   - `analyze_financial_document()` (GPT-4o).  
+   - `analyze_reputation()` (o3-mini).  
+   - `analyze_behavior()` (o3-mini).  
+   - Lanzados con `asyncio.gather()` para paralelismo real.
+4. Output Sanitization (Post-Procesado Parcial)  
+   - Función: `_execute_output_sanitization()` -> `sanitize_output()` por agente.  
+   - Modelo: o3-mini.  
+   - Enmascara PII o contenido sensible.  
+5. Scoring Consolidation  
+   - Función: `_consolidate_scoring()`  
+   - Prompt estructurado combina 3 vistas.  
+   - Modelo: GPT-4o (razonamiento multi-fuente).  
+   - Genera: `final_score`, `risk_level`, factores y recomendación.  
+6. Final Output Sanitization  
+   - Función: `_sanitize_final_output()`  
+   - Segunda capa para reporte integral.  
+7. Audit Logging  
+   - Funciones: `_log_evaluation_completion()` / fallos / `audit_logger` métodos específicos.  
+   - Persistencia estructurada JSON (`audit.log`).
+
+### 3. Estrategia de Selección de Modelos
+
+| Tarea                 | Modelo  | Justificación                                |
+|-----------------------|---------|----------------------------------------------|
+| Análisis Financiero   | GPT-4o  | Alta densidad semántica y precisión contable |
+| Consolidación Scoring | GPT-4o  | Integración multi-dimensional y explicación  |
+| Supervisión Seguridad | GPT-4o  | Evaluación contextual de patrones de logs    |
+| Reputación            | o3-mini | Análisis de sentimiento y temas rápidos      |
+| Comportamiento        | o3-mini | Clasificación simple y extracción patrones   | 
+| Validación Entrada    | o3-mini | Alto volumen, baja complejidad               |
+| Sanitización          | o3-mini | Detección templada de PII y formato rápido   |
+
+### 4. Paralelismo y Desempeño
+- Uso de `asyncio.gather()` en fase de negocio reduce latencia total (en lugar de suma secuencial).  
+- Tokenización equilibrada: GPT-4o reservado para pasos con razonamiento integral.  
+- Sanitización y validación diseñadas para tolerar fallos (graceful degradation) evitando falsos positivos bloqueantes.
+
+### 5. Resiliencia y Seguridad
+- Tolerancia a errores en parsing JSON: fallback heurístico (ej. reputación/finanzas).  
+- Rate limiting centralizado en servicio Azure (`azure_openai_service_enhanced`).  
+- Validación distingue datos empresariales legítimos vs intentos de manipulación.  
+- Supervisión sólo bloquea bajo umbral de alta confianza para minimizar interrupciones operativas.
+
+### 6. Métricas y Auditoría Enlazadas
+Cada fase registra: tipo, duración estimada, tokens (cuando disponible), resultado (`success/failed`). El `evaluation_id` unifica el rastro integral y habilita reconstrucción post-mortem.
+
+### 7. Diagrama de Secuencia (Lógico)
 ```mermaid
-graph TB
-    A[CompanyData] --> B[AzureOrchestrator]
-    B --> C[Basic Validation]
-    C --> D[Business Analysis - Parallel]
-    D --> E[Financial Analysis - GPT-4o]
-    D --> F[Reputational Analysis - o3-mini]
-    D --> G[Behavioral Analysis - o3-mini]
-    E --> H[Scoring Consolidation - GPT-4o]
-    F --> H
-    G --> H
-    H --> I[EvaluationResult]
-    I --> J[Final Score + Risk Level + Recommendations]
+sequenceDiagram
+    participant CLI as Caller
+    participant ORQ as AzureOrchestrator
+    participant SEC1 as SecuritySupervisor
+    participant SEC2 as InputValidator
+    participant FIN as FinancialAgent
+    participant REP as ReputationalAgent
+    participant BEH as BehavioralAgent
+    participant SAN as OutputSanitizer
+    participant GPT as GPT-4o/o3-mini
+    participant AUD as AuditLogger
+
+    CLI->>ORQ: evaluate_company_risk()
+    ORQ->>SEC1: run_security_supervision()
+    SEC1->>GPT: Log pattern analysis (GPT-4o)
+    GPT-->>SEC1: Report
+    ORQ->>SEC2: validate_company_data()
+    SEC2->>GPT: Fields validation (o3-mini)
+    GPT-->>SEC2: Validation results
+    ORQ->>FIN: analyze_financial_document()
+    ORQ->>REP: analyze_reputation()
+    ORQ->>BEH: analyze_behavior()
+    par Parallel Business
+        FIN->>GPT: Financial prompt (GPT-4o)
+        REP->>GPT: Reputation prompt (o3-mini)
+        BEH->>GPT: Behavioral prompt (o3-mini)
+    end
+    ORQ->>SAN: sanitize outputs (o3-mini)
+    ORQ->>GPT: Consolidate scoring (GPT-4o)
+    ORQ->>SAN: Final report sanitization (o3-mini)
+    ORQ->>AUD: Log completion
+    ORQ-->>CLI: EvaluationResult
 ```
 
 ---
@@ -272,62 +430,6 @@ class BehavioralAnalysisResult(BaseModel):
 
 ---
 
-## Agentes de Infraestructura
-
-### Implementación Actual (infrastructure/)
-
-#### 1. Orchestrator (`infrastructure/orchestrator.py`)
-- **Framework**: CrewAI para coordinación de agentes
-- **Funcionalidad**: Coordina flujo secuencial de agentes
-- **Problema**: Implementación con herramientas mock, no integrada con Azure
-
-#### 2. ScoringAgent (`infrastructure/scoring_agent.py`)
-- **Propósito**: Consolida resultados y genera scoring 0-1000
-- **Algoritmo**: Ponderación 60% financiero, 20% reputacional, 20% comportamental
-- **Clasificación**: Alto (0-400), Medio (401-650), Bajo (651-1000)
-
-#### 3. ScenarioSimulator (`infrastructure/scenario_simulator.py`)
-- **Funcionalidad**: Simulaciones "qué pasaría si"
-- **Capacidades**: Modificación de variables y recálculo de scoring
-- **Estado**: Implementación básica sin persistencia
-
-### Nueva Implementación (infrastructure_agents/)
-
-#### 1. AgentConnector (`infrastructure_agents/agent_connector.py`)
-**Características Principales**:
-- Conector central para todos los agentes
-- Selección automática de modelos (GPT-4o vs o3-mini)
-- Gestión de estadísticas de uso
-- Integración completa con servicios Azure
-
-**Funcionalidades Clave**:
-```python
-class AgentConnector:
-    def select_optimal_model(self, task_complexity, task_type)
-    def execute_with_model(self, prompt, system_prompt, model_type)
-    def execute_agent(self, request: AgentRequest)
-    def execute_full_risk_evaluation(self, company_data)
-```
-
-#### 2. InfrastructureService (`infrastructure_agents/infrastructure_service.py`)
-**Propósito**: Servicio principal que coordina todos los servicios Azure
-
-**Servicios Gestionados**:
-- Azure AI Agent Service
-- Azure OpenAI Service
-- Azure SQL Database
-- Azure Blob Storage
-- Semantic Kernel Service
-
-**Operaciones Principales**:
-```python
-async def start_risk_evaluation(self, company_data)
-async def get_evaluation_status(self, evaluation_id)
-async def generate_final_report(self, evaluation_id)
-```
-
----
-
 ## Agentes de Seguridad
 
 ### 1. SecuritySupervisor (`infrastructure/security/supervisor.py`)
@@ -452,28 +554,24 @@ def validate_config(self) -> list[str]:
 
 ## Configuración y Despliegue
 
-### Configuración de Variables de Entorno
-
-**Archivo `.env` Configurado**:
+### Configuración de Variables de Entorno (Sanitizada)
 ```bash
-# Azure OpenAI Service (FUNCIONAL)
-AZURE_OPENAI_ENDPOINT=https://hackathon-openai-svc.openai.azure.com/
-AZURE_OPENAI_API_KEY=8IAJsfvdWCgfljKGu7zjv8oMz6EuCxxnoOCzaA1oZDhu493XbVwzJQQJ99BHACYeBjFXJ3w3AAABACOGWYRJ
+# Azure OpenAI Service
+AZURE_OPENAI_ENDPOINT=https://<tu-endpoint>.openai.azure.com/
+AZURE_OPENAI_API_KEY=****
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
-
-# Modelos Azure OpenAI
-AZURE_OPENAI_DEPLOYMENT=gpt-4o          # Para análisis complejos
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
 AZURE_OPENAI_MODEL=gpt-4o
-AZURE_OPENAI_DEPLOYMENT_MINI=o3-mini    # Para tareas rápidas
+AZURE_OPENAI_DEPLOYMENT_MINI=o3-mini
 AZURE_OPENAI_MODEL_MINI=o3-mini
 
-# Azure Infrastructure (Opcional)
-AZURE_SUBSCRIPTION_ID=-2cb7e9109ea3-4f95-9265-db1da3765484
-AZURE_RESOURCE_GROUP=HackIAthon
+# Azure (Opcional / Placeholders)
+AZURE_SUBSCRIPTION_ID=<subscription-id>
+AZURE_RESOURCE_GROUP=<resource-group>
 AZURE_LOCATION=eastus
 
-# OpenAI Fallback
-OPENAI_API_KEY=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
+# OpenAI Fallback (si aplica)
+OPENAI_API_KEY=****
 ```
 
 ### Instalación y Configuración
@@ -758,7 +856,9 @@ class MasterOrchestrator:
 AZURE_OPENAI_ENDPOINT=https://your-openai.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_MODEL=gpt-4o
 AZURE_OPENAI_DEPLOYMENT_MINI=o3-mini
+AZURE_OPENAI_MODEL_MINI=o3-mini
 
 AZURE_SQL_SERVER=your-sql-server.database.windows.net
 AZURE_SQL_DATABASE=risk_evaluation_db
