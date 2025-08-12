@@ -154,3 +154,7 @@ sample_data/real/
 # Archivos de configuración de infraestructura local
 infrastructure/local/
 deployment/local/.env
+
+# === STREAMLIT ===
+.streamlit/secrets.toml
+.streamlit/credentials.toml
