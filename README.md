@@ -18,6 +18,11 @@ Sistema de inteligencia artificial que evalúa el riesgo crediticio de PYMEs ecu
 - ⚡ **Tiempo**: 50-60 segundos por evaluación
 - 🔒 **Seguridad**: Validación y sanitización completa
 
+## Arquitectura de Sistema
+
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/781b041c-a8a3-46d5-bf34-b9c7301ab676" />
+
+
 ## 🛠️ Tecnologías
 
 - **Frontend**: Streamlit
