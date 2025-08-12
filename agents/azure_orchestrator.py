@@ -25,6 +25,19 @@ from .infrastructure.security.supervisor import run_security_supervision, Superv
 from .infrastructure.security.output_sanitizer import sanitize_output, SanitizationResult
 from .infrastructure.security.audit_logger import AuditLogger, create_audit_logger
 
+# === Constantes y utilidades frontend ===
+RISK_LEVEL_RANGES = [
+    ("ALTO", 0, 499),
+    ("MEDIO", 500, 749),
+    ("BAJO", 750, 1000),
+]
+
+def classify_risk_level(score: float) -> str:
+    for name, low, high in RISK_LEVEL_RANGES:
+        if low <= score <= high:
+            return name
+    return "DESCONOCIDO"
+
 
 class EvaluationPhase(Enum):
     """Fases de la evaluación de riesgo"""
@@ -65,6 +78,23 @@ class EvaluationResult:
     success: bool
     errors: List[str] = field(default_factory=list)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "evaluation_id": self.evaluation_id,
+            "company_id": self.company_id,
+            "company_name": self.company_name,
+            "final_score": self.final_score,
+            "risk_level": self.risk_level,
+            "financial_analysis": self.financial_analysis,
+            "reputational_analysis": self.reputational_analysis,
+            "behavioral_analysis": self.behavioral_analysis,
+            "consolidated_report": self.consolidated_report,
+            "processing_time": self.processing_time,
+            "timestamp": self.timestamp.isoformat(),
+            "success": self.success,
+            "errors": self.errors,
+        }
+
 
 class AzureOrchestrator:
     """
@@ -91,6 +121,9 @@ class AzureOrchestrator:
             "average_processing_time": 0.0,
             "total_tokens_used": 0
         }
+        
+        # Cache de evaluaciones
+        self._evaluation_cache: Dict[str, Dict[str, Any]] = {}
         
         self.logger.info("AzureOrchestrator initialized")
     
@@ -234,6 +267,11 @@ class AzureOrchestrator:
                 timestamp=datetime.now(),
                 success=True
             )
+            # Clasificación redundante consistente (si desea sobre-escribir)
+            if isinstance(result.final_score, (int, float)):
+                result.risk_level = classify_risk_level(result.final_score)
+            # Cache
+            self._evaluation_cache[result.evaluation_id] = result.to_dict()
             
             self.stats["successful_evaluations"] += 1
             self._update_average_processing_time(processing_time)
@@ -250,7 +288,7 @@ class AzureOrchestrator:
             # Log the failure
             await self._log_evaluation_failure(evaluation_id, str(e), processing_time)
             
-            return EvaluationResult(
+            failed_result = EvaluationResult(
                 evaluation_id=evaluation_id,
                 company_id=company_data.company_id,
                 company_name=company_data.company_name,
@@ -265,6 +303,8 @@ class AzureOrchestrator:
                 success=False,
                 errors=[str(e)]
             )
+            self._evaluation_cache[evaluation_id] = failed_result.to_dict()
+            return failed_result
     
     def _basic_validation(self, company_data: CompanyData) -> bool:
         """Validación básica de datos"""
@@ -774,7 +814,7 @@ class AzureOrchestrator:
             "o3mini_model": self.config.deployment_name_mini if self.config else None
         }
     
-    async def evaluate_company_risk_from_pdfs(self, pdf_paths: List[str], company_name: str, user_id: str = "web_user") -> EvaluationResult:
+    async def evaluate_company_risk_from_pdfs(self, pdf_paths: List[str], company_name: str, user_id: str = "web_user", extra_inputs: Optional[Dict[str, Any]] = None) -> EvaluationResult:
         """Pipeline: PDFs financieros -> texto consolidado -> flujo actual de agentes.
         - Extrae texto/tablas con pdf_ingestion_service
         - Construye CompanyData y llama evaluate_company_risk
@@ -783,20 +823,28 @@ class AzureOrchestrator:
         # Parse PDFs
         parsed = await parse_financial_pdfs(pdf_paths)
         consolidated_text = build_financial_text_from_parsed(parsed)
-        # Fallback si no hay texto
         if not consolidated_text.strip():
             consolidated_text = json.dumps(parsed.get("summary", {}), ensure_ascii=False)
+        extras = extra_inputs or {}
         # CompanyData sintético
         company_data = CompanyData(
             company_id=f"PDF_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             company_name=company_name,
             financial_statements=consolidated_text,
-            social_media_data="",
-            commercial_references="Documentos financieros subidos en PDF",
-            payment_history="No provisto",
-            metadata={"source": "pdf_upload", "files": [str(p) for p in pdf_paths], "parsed_summary": parsed.get("summary", {})}
+            social_media_data=extras.get("social_media_data", ""),
+            commercial_references=extras.get("commercial_references", "Documentos financieros subidos en PDF"),
+            payment_history=extras.get("payment_history", "No provisto"),
+            metadata={
+                "source": "pdf_upload",
+                "user_id": user_id,
+                "files": [str(p) for p in pdf_paths],
+                "parsed_summary": parsed.get("summary", {}),
+            }
         )
         return await self.evaluate_company_risk(company_data)
+
+    def get_evaluation_cached(self, evaluation_id: str) -> Optional[Dict[str, Any]]:
+        return self._evaluation_cache.get(evaluation_id)
 
 
 # Factory function for easy instantiation

@@ -1,0 +1,56 @@
+/* Additional effect helpers for Balance & Info Upload component */
+@keyframes subtlePulse {
+	0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.35); }
+	70% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+	100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+}
+
+.pulse-ring {
+	animation: subtlePulse 1.8s ease-out infinite;
+}
+
+.fade-in-up {
+	opacity: 0;
+	transform: translateY(4px);
+	animation: fadeInUp .35s ease forwards;
+}
+@keyframes fadeInUp {
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* Wrapper mimicking social links card */
+.bu-wrapper {background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:1.9rem 1.6rem 2.1rem;max-width:1080px;margin:0 auto 2.25rem;box-shadow:0 2px 4px rgba(0,0,0,0.04);} 
+.bu-header {text-align:center;margin-bottom:1.6rem;}
+.bu-title {margin:0 0 .55rem;font-size:1.05rem;font-weight:600;letter-spacing:.3px;color:#1F2937;}
+.bu-hint {margin:0 auto;font-size:.72rem;line-height:1.35;color:#64748b;max-width:520px;letter-spacing:.2px;}
+.bu-grid {display:grid;gap:1.9rem;}
+@media (min-width:860px){.bu-grid{grid-template-columns:repeat(2,1fr);} }
+
+/* Dropzone */
+.bu-dropzone-wrapper {position:relative;}
+.bu-dropzone {background:linear-gradient(135deg,#f9fafb,#f3f4f6);border:1.5px dashed #cbd5e1;border-radius:18px;padding:2.25rem 1.35rem 2.4rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.45rem;text-align:center;cursor:pointer;transition:background .35s,border-color .25s,box-shadow .28s,transform .28s;position:relative;overflow:hidden;min-height:250px;}
+.bu-dropzone:before {content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,rgba(59,130,246,.15),rgba(59,130,246,0) 70%);opacity:0;transition:opacity .35s;}
+.bu-dropzone:hover {background:linear-gradient(135deg,#f3f6fb,#eef2f7);border-color:#94a3b8;box-shadow:0 4px 14px -2px rgba(15,23,42,0.08),0 2px 4px rgba(0,0,0,0.04);transform:translateY(-3px);} 
+.bu-dropzone:hover:before {opacity:1;}
+.bu-dropzone:active {transform:translateY(0);}
+.bu-dropzone:focus-visible {outline:3px solid rgba(59,130,246,.45);outline-offset:4px;}
+.bu-dropzone--active {border-color:#3B82F6;background:linear-gradient(135deg,#e0f2fe,#f0f9ff);} 
+.bu-dropzone--has-file {background:linear-gradient(135deg,#ffffff,#f8fafc);} 
+.bu-dz-icon {width:3.4rem;height:3.4rem;border-radius:1rem;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e2e8f0;color:#3B82F6;box-shadow:0 2px 4px rgba(0,0,0,0.04),0 3px 10px -2px rgba(59,130,246,0.15);margin:0 0 .2rem;font-size:1.05rem;}
+.bu-dropzone--has-file .bu-dz-icon {background:#eff6ff;}
+.bu-dz-text-main {font-size:.8rem;font-weight:600;letter-spacing:.25px;color:#1F2937;}
+.bu-dz-text-sub {font-size:.65rem;font-weight:500;letter-spacing:.35px;text-transform:uppercase;color:#64748b;margin-top:.1rem;}
+.bu-dz-meta {font-size:.6rem;color:#94a3b8;letter-spacing:.35px;text-transform:uppercase;margin-top:.25rem;}
+.bu-file-info {margin-top:.75rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;max-width:100%;}
+.bu-file-name {margin:0;font-size:.66rem;font-weight:600;color:#334155;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bu-file-meta {display:flex;align-items:center;gap:.45rem;font-size:.55rem;font-weight:600;letter-spacing:.35px;color:#64748b;text-transform:uppercase;}
+.bu-remove-btn {display:inline-flex;align-items:center;gap:.25rem;font-size:.55rem;font-weight:600;padding:.35rem .6rem;border-radius:8px;background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;cursor:pointer;transition:background .25s,border-color .25s,color .25s,box-shadow .25s;}
+.bu-remove-btn:hover {background:#fee2e2;border-color:#fca5a5;color:#dc2626;}
+.bu-remove-btn:focus-visible {outline:2px solid rgba(59,130,246,.5);outline-offset:3px;}
+.bu-error {margin:.5rem 0 0;font-size:.6rem;font-weight:600;color:#dc2626;letter-spacing:.35px;}
+
+@media (max-width:640px){
+	.bu-wrapper {padding:1.45rem 1.15rem 1.75rem;border-radius:15px;}
+	.bu-dropzone {min-height:220px;padding:2rem 1rem 2.1rem;border-radius:16px;}
+	.bu-dz-icon {width:3rem;height:3rem;border-radius:.9rem;}
+}
