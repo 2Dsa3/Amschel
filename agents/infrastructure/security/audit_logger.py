@@ -45,7 +45,7 @@ class AuditLogger:
                     details={"message": "Audit log initialized"},
                     success=True
                 )
-                f.write(initial_entry.json(ensure_ascii=False) + "\n")
+                f.write(initial_entry.model_dump_json() + "\n")
     
     def log_security_supervision(self, evaluation_id: str, company_id: str, 
                                supervision_result: Dict[str, Any], processing_time: float) -> None:
@@ -223,7 +223,7 @@ class AuditLogger:
         """Escribe un evento al archivo de log"""
         try:
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                f.write(event.json(ensure_ascii=False) + "\n")
+                f.write(event.model_dump_json() + "\n")
         except Exception as e:
             # If we can't write to the audit log, we have a serious problem
             # Try to write to a backup location
@@ -243,7 +243,7 @@ class AuditLogger:
                         },
                         success=False
                     )
-                    f.write(error_event.json(ensure_ascii=False) + "\n")
+                    f.write(error_event.model_dump_json() + "\n")
             except:
                 # If even the backup fails, there's nothing more we can do
                 pass

@@ -454,23 +454,74 @@ def generate_simulated_social_comments(company_name):
 def parse_analysis_result(analysis_data):
     """Parsea los resultados de análisis que pueden venir como JSON string o dict"""
     import json
+    import re
+    
+    def clean_json_from_text(text):
+        """Extrae solo el texto legible de un JSON o texto que contiene JSON"""
+        if not isinstance(text, str):
+            return text
+            
+        # Si el texto completo es un JSON, extraer solo el resumen_ejecutivo
+        if text.strip().startswith('{') and text.strip().endswith('}'):
+            try:
+                json_data = json.loads(text.strip())
+                if isinstance(json_data, dict) and 'resumen_ejecutivo' in json_data:
+                    return json_data['resumen_ejecutivo']
+                # Si no tiene resumen_ejecutivo, buscar otros campos de texto
+                for key in ['resumen', 'summary', 'description', 'texto']:
+                    if key in json_data and isinstance(json_data[key], str):
+                        return json_data[key]
+                # Si no encuentra texto, devolver una descripción básica
+                return "Análisis completado correctamente"
+            except:
+                pass
+        
+        # Si contiene JSON parcial, intentar extraer texto antes del JSON
+        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        if re.search(json_pattern, text):
+            # Extraer texto antes del primer JSON
+            before_json = re.split(json_pattern, text)[0].strip()
+            if before_json and len(before_json) > 10:
+                return before_json
+            
+            # Si no hay texto antes, intentar extraer del JSON
+            json_matches = re.findall(json_pattern, text)
+            for json_str in json_matches:
+                try:
+                    json_data = json.loads(json_str)
+                    if isinstance(json_data, dict) and 'resumen_ejecutivo' in json_data:
+                        return json_data['resumen_ejecutivo']
+                except:
+                    continue
+        
+        return text
     
     if isinstance(analysis_data, str):
         try:
             # Si es un string JSON, parsearlo
-            return json.loads(analysis_data)
+            parsed = json.loads(analysis_data)
+            # Limpiar el resumen_ejecutivo si contiene JSON
+            if 'resumen_ejecutivo' in parsed:
+                parsed['resumen_ejecutivo'] = clean_json_from_text(parsed['resumen_ejecutivo'])
+            return parsed
         except json.JSONDecodeError:
             # Si no es JSON válido, devolver como está
-            return {"resumen_ejecutivo": analysis_data, "success": False}
+            return {"resumen_ejecutivo": clean_json_from_text(analysis_data), "success": False}
     elif isinstance(analysis_data, dict):
-        # Si ya es un diccionario, devolverlo como está
-        return analysis_data
+        # Si ya es un diccionario, limpiar el resumen_ejecutivo
+        result = analysis_data.copy()
+        if 'resumen_ejecutivo' in result:
+            result['resumen_ejecutivo'] = clean_json_from_text(result['resumen_ejecutivo'])
+        return result
     else:
         # Si es otro tipo de objeto, intentar convertirlo a dict
         try:
-            return dict(analysis_data)
+            result = dict(analysis_data)
+            if 'resumen_ejecutivo' in result:
+                result['resumen_ejecutivo'] = clean_json_from_text(result['resumen_ejecutivo'])
+            return result
         except:
-            return {"resumen_ejecutivo": str(analysis_data), "success": False}
+            return {"resumen_ejecutivo": "Análisis completado", "success": False}
 
 async def evaluate_company_risk(company_data):
     """Evalúa el riesgo de la empresa usando el orquestador"""

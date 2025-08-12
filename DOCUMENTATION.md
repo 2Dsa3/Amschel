@@ -1,15 +1,17 @@
-# Sistema de Evaluación Inteligente de Riesgo Financiero para PYMEs
-## Documentación Técnica Actualizada
+# PymeRisk - Sistema de Evaluación de Riesgo Financiero
+## Documentación Técnica - Versión Producción
+
+### 🚀 **ESTADO: FUNCIONAL Y DESPLEGADO**
+- **URL Deploy**: https://deploy-pymerisk-dhtmtkfxynnrd6wqzsztbu.streamlit.app/
+- **Versión**: 1.0 - Producción
+- **Última actualización**: Enero 2025
 
 ### Índice
-1. [Visión General del Sistema](#visión-general-del-sistema)
-2. [Arquitectura Final](#arquitectura-final)
-3. [Orquestador Principal](#orquestador-principal)
-4. [Agentes de Negocio](#agentes-de-negocio)
-5. [Servicios Azure](#servicios-azure)
-6. [Configuración y Despliegue](#configuración-y-despliegue)
-7. [Testing y Validación](#testing-y-validación)
-8. [Métricas y Monitoreo](#métricas-y-monitoreo)
+1. [Visión General](#visión-general)
+2. [Frontend Streamlit](#frontend-streamlit)
+3. [Arquitectura del Sistema](#arquitectura-del-sistema)
+4. [Configuración y Deploy](#configuración-y-deploy)
+5. [Uso del Sistema](#uso-del-sistema)
 
 ---
 

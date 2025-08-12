@@ -1,8 +1,9 @@
-SISTEMA DE EVALUACIÓN DE RIESGO FINANCIERO PARA PYMEs - INFORMACIÓN TÉCNICA
+PYMERISK - SISTEMA DE EVALUACIÓN DE RIESGO FINANCIERO PARA PYMEs
 ================================================================================
 
-FECHA DE CREACIÓN: 2025-01-08
-HACKATHON: Deploy en Streamlit
+VERSIÓN: 1.0 - PRODUCCIÓN
+FECHA: Enero 2025
+ESTADO: ✅ FUNCIONAL Y DESPLEGADO
 DEPLOY URL: https://deploy-pymerisk-dhtmtkfxynnrd6wqzsztbu.streamlit.app/
 
 ARQUITECTURA DEL SISTEMA:
@@ -12,7 +13,7 @@ ARQUITECTURA DEL SISTEMA:
    - Archivo: agents/azure_orchestrator.py
    - Función: Coordina todo el flujo de evaluación
    - Modelos: GPT-4o (análisis complejos) + o3-mini (tareas rápidas)
-   - Tiempo promedio: 15-20 segundos por evaluación
+   - Tiempo promedio: 50-60 segundos por evaluación
    - Success rate: 100%
 
 2. AGENTES DE NEGOCIO:
@@ -43,10 +44,10 @@ CONFIGURACIÓN AZURE:
 
 ARCHIVOS CLAVE:
 ==============
-- main_integrated.py: Aplicación principal de demostración
-- test_pdf_risk_evaluation.py: Test para evaluación desde PDFs
+- app.py: Frontend Streamlit principal
 - agents/azure_orchestrator.py: Orquestador principal
 - requirements.txt: Dependencias del sistema
+- README.md: Documentación principal
 
 ESTRUCTURA DE DATOS:
 ===================
@@ -91,7 +92,7 @@ FRONTEND STREAMLIT:
   * Upload de 2 PDFs (balance financiero + info general)
   * Extracción automática de texto con PyPDF2
   * Formulario para datos adicionales
-  * Evaluación en tiempo real (15-20s)
+  * Evaluación en tiempo real (50-60s)
   * Visualización detallada de resultados
   * Métricas: Score 0-1000, nivel de riesgo, análisis por categorías
 
@@ -110,7 +111,7 @@ FLUJO FRONTEND:
 3. Crea CompanyData con textos extraídos
 4. Llama a AzureOrchestrator.evaluate_company_risk()
 5. Muestra resultados en tabs organizados
-6. Tiempo total: ~20-25 segundos
+6. Tiempo total: ~50-60 segundos
 
 PRÓXIMAS ITERACIONES:
 ====================
