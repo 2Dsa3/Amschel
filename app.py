@@ -410,6 +410,68 @@ def improve_text_spacing(text):
     
     return text
 
+def generate_simulated_social_comments(company_name):
+    """Genera comentarios simulados de redes sociales para demostrar el análisis reputacional"""
+    import random
+    
+    # Plantillas de comentarios positivos
+    positive_comments = [
+        f"Excelente servicio de {company_name}! Muy profesionales y puntuales en sus entregas. Los recomiendo 100%.",
+        f"Llevo 3 años trabajando con {company_name} y siempre cumplen con lo prometido. Calidad garantizada.",
+        f"El equipo de {company_name} es muy responsable. Resolvieron nuestro problema rápidamente y con gran profesionalismo.",
+        f"Muy satisfecho con los servicios de {company_name}. Precios justos y excelente atención al cliente.",
+        f"Recomiendo ampliamente a {company_name}. Son una empresa seria y confiable, siempre entregan a tiempo."
+    ]
+    
+    # Plantillas de comentarios neutrales
+    neutral_comments = [
+        f"Trabajé con {company_name} el año pasado. El servicio fue correcto, sin mayores inconvenientes.",
+        f"Empresa {company_name} cumple con lo básico. Nada extraordinario pero tampoco problemas graves.",
+        f"Experiencia promedio con {company_name}. Podrían mejorar la comunicación con los clientes.",
+        f"Los precios de {company_name} están dentro del mercado. Servicio estándar para el sector."
+    ]
+    
+    # Plantillas de comentarios con sugerencias de mejora
+    improvement_comments = [
+        f"Buen servicio de {company_name}, aunque podrían mejorar los tiempos de respuesta por WhatsApp.",
+        f"En general bien con {company_name}, solo sugiero que actualicen más seguido su página web.",
+        f"Trabajo realizado por {company_name} fue satisfactorio. Sería bueno que ofrecieran más opciones de pago."
+    ]
+    
+    # Seleccionar comentarios de forma aleatoria pero balanceada
+    selected_comments = []
+    
+    # 60% positivos, 30% neutrales, 10% con sugerencias
+    selected_comments.extend(random.sample(positive_comments, 3))
+    selected_comments.extend(random.sample(neutral_comments, 2))
+    selected_comments.extend(random.sample(improvement_comments, 1))
+    
+    # Mezclar el orden
+    random.shuffle(selected_comments)
+    
+    return selected_comments[:6]  # Retornar 6 comentarios
+
+def parse_analysis_result(analysis_data):
+    """Parsea los resultados de análisis que pueden venir como JSON string o dict"""
+    import json
+    
+    if isinstance(analysis_data, str):
+        try:
+            # Si es un string JSON, parsearlo
+            return json.loads(analysis_data)
+        except json.JSONDecodeError:
+            # Si no es JSON válido, devolver como está
+            return {"resumen_ejecutivo": analysis_data, "success": False}
+    elif isinstance(analysis_data, dict):
+        # Si ya es un diccionario, devolverlo como está
+        return analysis_data
+    else:
+        # Si es otro tipo de objeto, intentar convertirlo a dict
+        try:
+            return dict(analysis_data)
+        except:
+            return {"resumen_ejecutivo": str(analysis_data), "success": False}
+
 async def evaluate_company_risk(company_data):
     """Evalúa el riesgo de la empresa usando el orquestador"""
     try:
@@ -664,6 +726,45 @@ def main():
         help="Información adicional que puede mejorar la precisión de la evaluación"
     )
     
+    # Sección de redes sociales simulada
+    st.markdown("### 📱 Análisis de Redes Sociales (Simulado)")
+    
+    col_social1, col_social2 = st.columns(2)
+    
+    with col_social1:
+        social_media_url = st.text_input(
+            "🔗 URL de Red Social",
+            placeholder="https://instagram.com/empresa o https://facebook.com/empresa",
+            help="URL de la red social de la empresa (para demostración)"
+        )
+    
+    with col_social2:
+        simulate_social = st.checkbox(
+            "✨ Generar comentarios simulados",
+            value=True,
+            help="Genera comentarios de ejemplo para demostrar el análisis reputacional"
+        )
+    
+    if simulate_social:
+        st.markdown("""
+        <div class="warning-box">
+        <strong>⚠️ Sección Simulada:</strong> Los siguientes comentarios son generados automáticamente para demostrar 
+        el funcionamiento del agente de análisis reputacional. En un entorno real, estos datos se obtendrían 
+        directamente de las APIs de redes sociales.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Generar comentarios simulados basados en el nombre de la empresa
+        if company_name:
+            simulated_comments = generate_simulated_social_comments(company_name)
+            
+            with st.expander("👀 Ver comentarios simulados generados", expanded=False):
+                st.markdown("**Comentarios y reseñas simulados:**")
+                for i, comment in enumerate(simulated_comments, 1):
+                    st.markdown(f"**Cliente {i}:** {comment}")
+        else:
+            st.info("💡 Ingresa el nombre de la empresa para generar comentarios simulados")
+    
     # Botón de evaluación
     st.markdown("---")
     
@@ -686,12 +787,24 @@ def main():
             st.error("❌ Error al extraer texto de los PDFs. Verifica que los archivos no estén dañados.")
             return
         
+        # Preparar datos de redes sociales
+        social_media_content = general_text  # Información general del PDF
+        
+        # Si se activaron comentarios simulados, agregarlos
+        if simulate_social and company_name:
+            simulated_comments = generate_simulated_social_comments(company_name)
+            social_media_section = "\n\n=== COMENTARIOS Y RESEÑAS DE CLIENTES ===\n"
+            for i, comment in enumerate(simulated_comments, 1):
+                social_media_section += f"\nCliente {i}: {comment}\n"
+            
+            social_media_content += social_media_section
+        
         # Preparar datos para evaluación
         company_data = {
             "company_id": company_id if company_id else f"EVAL_{int(time.time())}",
             "company_name": company_name,
             "financial_statements": financial_text,
-            "social_media_data": general_text,  # Usamos la info general como datos sociales/reputacionales
+            "social_media_data": social_media_content,  # Incluye info general + comentarios simulados
             "commercial_references": commercial_references if commercial_references else "No proporcionado",
             "payment_history": "No disponible - Evaluación basada en documentos"
         }
@@ -790,97 +903,110 @@ def main():
                     f"{result.consolidated_report.get('confidence', 0):.1%}" if result.consolidated_report else "N/A",
                     help="Nivel de confianza en la evaluación"
                 )
-                
-                # Análisis detallado
-                st.header("🔍 Análisis Detallado")
-                
-                tab1, tab2, tab3, tab4 = st.tabs(["💰 Financiero", "🌟 Reputacional", "📈 Comportamental", "📋 Consolidado"])
-                
-                with tab1:
-                    if result.financial_analysis and result.financial_analysis.get('success', True):
-                        fa = result.financial_analysis
-                        st.markdown("### Análisis Financiero")
+            
+            # Análisis detallado
+            st.header("🔍 Análisis Detallado")
+            
+            tab1, tab2, tab3, tab4 = st.tabs(["💰 Financiero", "🌟 Reputacional", "📈 Comportamental", "📋 Consolidado"])
+            
+            with tab1:
+                if result.financial_analysis and result.financial_analysis.get('success', True):
+                    fa = result.financial_analysis
+                    st.markdown("### Análisis Financiero")
+                    
+                    if fa.get('solvencia'):
+                        st.markdown(f"**Solvencia:** {fa['solvencia']}")
+                    if fa.get('liquidez'):
+                        st.markdown(f"**Liquidez:** {fa['liquidez']}")
+                    if fa.get('rentabilidad'):
+                        st.markdown(f"**Rentabilidad:** {fa['rentabilidad']}")
+                    if fa.get('resumen_ejecutivo'):
+                        st.markdown(f"**Resumen:** {fa['resumen_ejecutivo']}")
+                    
+                    if fa.get('tokens_used'):
+                        st.caption(f"Tokens utilizados: {fa['tokens_used']}")
+                else:
+                    st.warning("⚠️ Análisis financiero no disponible")
+            
+            with tab2:
+                if result.reputational_analysis and result.reputational_analysis.get('success', True):
+                    # Parsear el resultado del análisis reputacional
+                    ra = parse_analysis_result(result.reputational_analysis)
+                    st.markdown("### Análisis Reputacional")
+                    
+                    if ra.get('sentimiento_general'):
+                        sentiment_emoji = {"Positivo": "😊", "Neutral": "😐", "Negativo": "😟"}
+                        st.markdown(f"**Sentimiento General:** {sentiment_emoji.get(ra['sentimiento_general'], '')} {ra['sentimiento_general']}")
+                    
+                    if ra.get('puntaje_sentimiento') is not None:
+                        st.markdown(f"**Puntaje de Sentimiento:** {ra['puntaje_sentimiento']:.2f}")
+                    
+                    if ra.get('temas_positivos') and isinstance(ra['temas_positivos'], list):
+                        st.markdown(f"**Temas Positivos:** {', '.join(ra['temas_positivos'])}")
+                    
+                    if ra.get('temas_negativos') and isinstance(ra['temas_negativos'], list):
+                        st.markdown(f"**Temas Negativos:** {', '.join(ra['temas_negativos'])}")
+                    
+                    if ra.get('resumen_ejecutivo'):
+                        st.markdown(f"**Resumen:** {ra['resumen_ejecutivo']}")
+                    
+                    if ra.get('tokens_used'):
+                        st.caption(f"Tokens utilizados: {ra['tokens_used']}")
                         
-                        if fa.get('solvencia'):
-                            st.markdown(f"**Solvencia:** {fa['solvencia']}")
-                        if fa.get('liquidez'):
-                            st.markdown(f"**Liquidez:** {fa['liquidez']}")
-                        if fa.get('rentabilidad'):
-                            st.markdown(f"**Rentabilidad:** {fa['rentabilidad']}")
-                        if fa.get('resumen_ejecutivo'):
-                            st.markdown(f"**Resumen:** {fa['resumen_ejecutivo']}")
-                        
-                        if fa.get('tokens_used'):
-                            st.caption(f"Tokens utilizados: {fa['tokens_used']}")
-                    else:
-                        st.warning("⚠️ Análisis financiero no disponible")
-                
-                with tab2:
-                    if result.reputational_analysis and result.reputational_analysis.get('success', True):
-                        ra = result.reputational_analysis
-                        st.markdown("### Análisis Reputacional")
-                        
-                        if ra.get('sentimiento_general'):
-                            sentiment_emoji = {"Positivo": "😊", "Neutral": "😐", "Negativo": "😟"}
-                            st.markdown(f"**Sentimiento General:** {sentiment_emoji.get(ra['sentimiento_general'], '')} {ra['sentimiento_general']}")
-                        
-                        if ra.get('puntaje_sentimiento') is not None:
-                            st.markdown(f"**Puntaje de Sentimiento:** {ra['puntaje_sentimiento']:.2f}")
-                        
-                        if ra.get('temas_positivos'):
-                            st.markdown(f"**Temas Positivos:** {', '.join(ra['temas_positivos'])}")
-                        
-                        if ra.get('resumen_ejecutivo'):
-                            st.markdown(f"**Resumen:** {ra['resumen_ejecutivo']}")
-                        
-                        if ra.get('tokens_used'):
-                            st.caption(f"Tokens utilizados: {ra['tokens_used']}")
-                    else:
-                        st.warning("⚠️ Análisis reputacional no disponible")
-                
-                with tab3:
-                    if result.behavioral_analysis and result.behavioral_analysis.get('success', True):
-                        ba = result.behavioral_analysis
-                        st.markdown("### Análisis Comportamental")
-                        
-                        if ba.get('patron_de_pago'):
-                            st.markdown(f"**Patrón de Pago:** {ba['patron_de_pago']}")
-                        
-                        if ba.get('fiabilidad_referencias'):
-                            st.markdown(f"**Fiabilidad de Referencias:** {ba['fiabilidad_referencias']}")
-                        
-                        if ba.get('riesgo_comportamental'):
-                            st.markdown(f"**Riesgo Comportamental:** {ba['riesgo_comportamental']}")
-                        
-                        if ba.get('resumen_ejecutivo'):
-                            st.markdown(f"**Resumen:** {ba['resumen_ejecutivo']}")
-                        
-                        if ba.get('tokens_used'):
-                            st.caption(f"Tokens utilizados: {ba['tokens_used']}")
-                    else:
-                        st.warning("⚠️ Análisis comportamental no disponible")
-                
-                with tab4:
-                    if result.consolidated_report and result.consolidated_report.get('success', True):
-                        cr = result.consolidated_report
-                        st.markdown("### Reporte Consolidado")
-                        
-                        if cr.get('credit_recommendation'):
-                            st.markdown(f"**Recomendación Crediticia:** {cr['credit_recommendation']}")
-                        
-                        if cr.get('justification'):
-                            st.markdown(f"**Justificación:** {cr['justification']}")
-                        
-                        if cr.get('contributing_factors'):
-                            st.markdown("**Factores Contribuyentes:**")
-                            for factor in cr['contributing_factors']:
-                                st.markdown(f"- {factor}")
-                        
-                        if cr.get('tokens_used'):
-                            st.caption(f"Tokens utilizados: {cr['tokens_used']}")
-                    else:
-                        st.warning("⚠️ Reporte consolidado no disponible")
-                
+                    # Mostrar comentarios simulados si están disponibles
+                    if simulate_social and company_name:
+                        st.markdown("---")
+                        st.markdown("**📱 Comentarios Analizados (Simulados):**")
+                        simulated_comments = generate_simulated_social_comments(company_name)
+                        for i, comment in enumerate(simulated_comments[:3], 1):
+                            st.markdown(f"• **Cliente {i}:** {comment[:100]}...")
+                else:
+                    st.warning("⚠️ Análisis reputacional no disponible")
+            
+            with tab3:
+                if result.behavioral_analysis and result.behavioral_analysis.get('success', True):
+                    # Parsear el resultado del análisis comportamental
+                    ba = parse_analysis_result(result.behavioral_analysis)
+                    st.markdown("### Análisis Comportamental")
+                    
+                    if ba.get('patron_de_pago'):
+                        st.markdown(f"**Patrón de Pago:** {ba['patron_de_pago']}")
+                    
+                    if ba.get('fiabilidad_referencias'):
+                        st.markdown(f"**Fiabilidad de Referencias:** {ba['fiabilidad_referencias']}")
+                    
+                    if ba.get('riesgo_comportamental'):
+                        st.markdown(f"**Riesgo Comportamental:** {ba['riesgo_comportamental']}")
+                    
+                    if ba.get('resumen_ejecutivo'):
+                        st.markdown(f"**Resumen:** {ba['resumen_ejecutivo']}")
+                    
+                    if ba.get('tokens_used'):
+                        st.caption(f"Tokens utilizados: {ba['tokens_used']}")
+                else:
+                    st.warning("⚠️ Análisis comportamental no disponible")
+            
+            with tab4:
+                if result.consolidated_report and result.consolidated_report.get('success', True):
+                    cr = result.consolidated_report
+                    st.markdown("### Reporte Consolidado")
+                    
+                    if cr.get('credit_recommendation'):
+                        st.markdown(f"**Recomendación Crediticia:** {cr['credit_recommendation']}")
+                    
+                    if cr.get('justification'):
+                        st.markdown(f"**Justificación:** {cr['justification']}")
+                    
+                    if cr.get('contributing_factors'):
+                        st.markdown("**Factores Contribuyentes:**")
+                        for factor in cr['contributing_factors']:
+                            st.markdown(f"- {factor}")
+                    
+                    if cr.get('tokens_used'):
+                        st.caption(f"Tokens utilizados: {cr['tokens_used']}")
+                else:
+                    st.warning("⚠️ Reporte consolidado no disponible")
+            
             # Información técnica
             with st.expander("🔧 Información Técnica"):
                 st.markdown(f"**ID de Evaluación:** {result.evaluation_id}")
