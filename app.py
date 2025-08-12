@@ -354,16 +354,61 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def extract_text_from_pdf(pdf_file):
-    """Extrae texto de un archivo PDF"""
+    """Extrae texto de un archivo PDF con mejor manejo de espacios"""
     try:
         pdf_reader = PyPDF2.PdfReader(pdf_file)
         text = ""
         for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+            page_text = page.extract_text()
+            # Mejorar el espaciado del texto extraído
+            page_text = improve_text_spacing(page_text)
+            text += page_text + "\n"
         return text.strip()
     except Exception as e:
         st.error(f"Error al extraer texto del PDF: {str(e)}")
         return None
+
+def improve_text_spacing(text):
+    """Mejora el espaciado del texto extraído de PDFs"""
+    import re
+    
+    if not text:
+        return text
+    
+    # Agregar espacios antes de números que siguen a letras
+    text = re.sub(r'([a-záéíóúñ])(\d)', r'\1 \2', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios después de números que preceden a letras
+    text = re.sub(r'(\d)([a-záéíóúñ])', r'\1 \2', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios antes de paréntesis que siguen a letras/números
+    text = re.sub(r'([a-záéíóúñ\d])\(', r'\1 (', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios después de paréntesis que preceden a letras/números
+    text = re.sub(r'\)([a-záéíóúñ\d])', r') \1', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios antes de signos de dólar que siguen a letras
+    text = re.sub(r'([a-záéíóúñ])\$', r'\1 $', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios después de signos de dólar que preceden a letras (pero no números)
+    text = re.sub(r'\$([a-záéíóúñ])', r'$ \1', text, flags=re.IGNORECASE)
+    
+    # Agregar espacios antes de mayúsculas que siguen a minúsculas (para separar palabras pegadas)
+    text = re.sub(r'([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])', r'\1 \2', text)
+    
+    # Agregar espacios después de puntos que preceden a letras mayúsculas
+    text = re.sub(r'\.([A-ZÁÉÍÓÚÑ])', r'. \1', text)
+    
+    # Agregar espacios después de comas que preceden a letras
+    text = re.sub(r',([a-záéíóúñA-ZÁÉÍÓÚÑ])', r', \1', text, flags=re.IGNORECASE)
+    
+    # Limpiar espacios múltiples
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Limpiar espacios al inicio y final
+    text = text.strip()
+    
+    return text
 
 async def evaluate_company_risk(company_data):
     """Evalúa el riesgo de la empresa usando el orquestador"""
@@ -525,7 +570,7 @@ def main():
         with col1:
             st.markdown("""
             <div class="metric-card">
-            <strong>Tiempo:</strong> 15-20s<br>
+            <strong>Tiempo:</strong> 50-60s<br>
             <strong>Seguridad:</strong> 100%
             </div>
             """, unsafe_allow_html=True)
@@ -651,58 +696,100 @@ def main():
             "payment_history": "No disponible - Evaluación basada en documentos"
         }
         
-        # Ejecutar evaluación
-        with st.spinner("🤖 Evaluando riesgo financiero... (esto puede tomar 15-20 segundos)"):
-            try:
-                # Ejecutar evaluación asíncrona
-                result, error = asyncio.run(evaluate_company_risk(company_data))
+        # Ejecutar evaluación con barra de progreso
+        st.info("🚀 Iniciando evaluación de riesgo financiero... (50-60 segundos)")
+        
+        # Crear barra de progreso
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Pasos del progreso con tiempos realistas
+        progress_steps = [
+            (10, "📄 Extrayendo información de PDFs..."),
+            (20, "🔍 Validando datos de entrada..."),
+            (35, "💰 Analizando estados financieros con GPT-4o..."),
+            (55, "🌟 Evaluando reputación digital con o3-mini..."),
+            (70, "📈 Analizando comportamiento comercial..."),
+            (85, "🎯 Consolidando análisis y calculando score..."),
+            (95, "📊 Generando reporte final..."),
+        ]
+        
+        # Simular progreso mientras se ejecuta la evaluación
+        start_time = time.time()
+        
+        # Función para simular progreso en paralelo
+        async def simulate_progress_and_evaluate():
+            # Crear tarea para la evaluación real
+            eval_task = asyncio.create_task(evaluate_company_risk(company_data))
+            
+            # Simular progreso durante 60 segundos
+            for i, (progress, message) in enumerate(progress_steps):
+                status_text.text(message)
+                progress_bar.progress(progress)
                 
-                if error:
-                    st.error(f"❌ {error}")
-                    return
-                
-                if not result or not result.success:
-                    st.error("❌ La evaluación no se completó exitosamente")
-                    if result and result.errors:
-                        st.error(f"Errores: {', '.join(result.errors)}")
-                    return
-                
-                # Mostrar resultados
-                st.success("✅ Evaluación completada exitosamente!")
-                
-                # Métricas principales
-                st.header("📊 Resultados de la Evaluación")
-                
-                col5, col6, col7, col8 = st.columns(4)
-                
-                with col5:
-                    st.metric(
-                        "Score Final",
-                        f"{result.final_score:.0f}/1000",
-                        help="Puntuación de riesgo: Mayor puntaje = Menor riesgo"
-                    )
-                
-                with col6:
-                    risk_color = {"BAJO": "🟢", "MEDIO": "🟡", "ALTO": "🔴"}
-                    st.metric(
-                        "Nivel de Riesgo",
-                        f"{risk_color.get(result.risk_level, '⚪')} {result.risk_level}",
-                        help="Clasificación de riesgo crediticio"
-                    )
-                
-                with col7:
-                    st.metric(
-                        "Tiempo de Procesamiento",
-                        f"{result.processing_time:.1f}s",
-                        help="Tiempo total de evaluación"
-                    )
-                
-                with col8:
-                    st.metric(
-                        "Confianza",
-                        f"{result.consolidated_report.get('confidence', 0):.1%}" if result.consolidated_report else "N/A",
-                        help="Nivel de confianza en la evaluación"
-                    )
+                # Esperar tiempo proporcional (60 segundos total / 7 pasos)
+                if i < len(progress_steps) - 1:
+                    await asyncio.sleep(8.5)  # ~60 segundos / 7 pasos
+            
+            # Esperar a que termine la evaluación real
+            result, error = await eval_task
+            
+            # Completar progreso
+            progress_bar.progress(100)
+            status_text.text("✅ Evaluación completada!")
+            
+            return result, error
+        
+        try:
+            # Ejecutar evaluación con progreso simulado
+            result, error = asyncio.run(simulate_progress_and_evaluate())
+            
+            if error:
+                st.error(f"❌ {error}")
+                return
+            
+            if not result or not result.success:
+                st.error("❌ La evaluación no se completó exitosamente")
+                if result and result.errors:
+                    st.error(f"Errores: {', '.join(result.errors)}")
+                return
+            
+            # Mostrar resultados
+            st.success("✅ Evaluación completada exitosamente!")
+            
+            # Métricas principales
+            st.header("📊 Resultados de la Evaluación")
+            
+            col5, col6, col7, col8 = st.columns(4)
+            
+            with col5:
+                st.metric(
+                    "Score Final",
+                    f"{result.final_score:.0f}/1000",
+                    help="Puntuación de riesgo: Mayor puntaje = Menor riesgo"
+                )
+            
+            with col6:
+                risk_color = {"BAJO": "🟢", "MEDIO": "🟡", "ALTO": "🔴"}
+                st.metric(
+                    "Nivel de Riesgo",
+                    f"{risk_color.get(result.risk_level, '⚪')} {result.risk_level}",
+                    help="Clasificación de riesgo crediticio"
+                )
+            
+            with col7:
+                st.metric(
+                    "Tiempo de Procesamiento",
+                    f"{result.processing_time:.1f}s",
+                    help="Tiempo total de evaluación"
+                )
+            
+            with col8:
+                st.metric(
+                    "Confianza",
+                    f"{result.consolidated_report.get('confidence', 0):.1%}" if result.consolidated_report else "N/A",
+                    help="Nivel de confianza en la evaluación"
+                )
                 
                 # Análisis detallado
                 st.header("🔍 Análisis Detallado")
@@ -794,20 +881,20 @@ def main():
                     else:
                         st.warning("⚠️ Reporte consolidado no disponible")
                 
-                # Información técnica
-                with st.expander("🔧 Información Técnica"):
-                    st.markdown(f"**ID de Evaluación:** {result.evaluation_id}")
-                    st.markdown(f"**Timestamp:** {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-                    st.markdown(f"**Empresa:** {result.company_name}")
-                    st.markdown(f"**Estado:** {'✅ Exitoso' if result.success else '❌ Error'}")
-                    
-                    if hasattr(result, 'total_tokens_used'):
-                        st.markdown(f"**Tokens Totales:** {result.total_tokens_used}")
+            # Información técnica
+            with st.expander("🔧 Información Técnica"):
+                st.markdown(f"**ID de Evaluación:** {result.evaluation_id}")
+                st.markdown(f"**Timestamp:** {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                st.markdown(f"**Empresa:** {result.company_name}")
+                st.markdown(f"**Estado:** {'✅ Exitoso' if result.success else '❌ Error'}")
                 
-            except Exception as e:
-                st.error(f"❌ Error durante la evaluación: {str(e)}")
-                with st.expander("Detalles del error"):
-                    st.code(traceback.format_exc())
+                if hasattr(result, 'total_tokens_used'):
+                    st.markdown(f"**Tokens Totales:** {result.total_tokens_used}")
+            
+        except Exception as e:
+            st.error(f"❌ Error durante la evaluación: {str(e)}")
+            with st.expander("Detalles del error"):
+                st.code(traceback.format_exc())
 
 if __name__ == "__main__":
     main()
