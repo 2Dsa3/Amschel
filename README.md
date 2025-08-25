@@ -1,4 +1,6 @@
-# 🏦 Aschmel.ai - Sistema de Evaluación de Riesgo Financiero
+# 🏦 PymeRisk - Sistema de Evaluación de Riesgo Financiero
+
+## AI Hackathon winner
 
 ## 🚀 **ESTADO: FUNCIONAL Y DESPLEGADO**
 - **URL Deploy**: https://deploy-pymerisk-dhtmtkfxynnrd6wqzsztbu.streamlit.app/
@@ -7,7 +9,9 @@
 
 ## 📋 Descripción
 
-Sistema de inteligencia artificial que evalúa el riesgo crediticio de PYMEs ecuatorianas en 50-60 segundos, utilizando Azure OpenAI (GPT-4o + o3-mini) y análisis multidimensional de documentos financieros.
+PymeRisk es la solución de inteligencia artificial que ganó el hackathon por su innovación en la evaluación del riesgo crediticio de PYMEs ecuatorianas. Procesa estados financieros, comportamiento digital, referencias comerciales y patrones de pago para generar un puntaje de riesgo alternativo (0-1000), clasificando a las empresas en alto, medio o bajo riesgo.
+
+Con su dashboard interactivo y simulaciones de escenarios, PymeRisk facilita decisiones de crédito más rápidas y objetivas, democratiza el acceso al financiamiento y contribuye a reducir la exclusión financiera, incluso para negocios rentables pero informales.
 
 ## ✨ Características Principales
 
@@ -121,10 +125,10 @@ Este proyecto está bajo la Licencia MIT.
 
 ## 👥 Autores
 
-- **Equipo Aschmel.ai** - Desarrollo inicial
+- David Sumba
+- Abrahan Cedeño
+- Jandony Guzman
 
 ## 🙏 Agradecimientos
 
-- Azure OpenAI Service por la infraestructura de IA
-- Streamlit por la plataforma de frontend
-- Superintendencia de Compañías del Ecuador por los datos de referencia
+- Sponsors que hicieron posible el Hackiathon
